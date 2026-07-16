@@ -1,240 +1,107 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { reportAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { FileBarChart, Download, Calendar } from 'lucide-react';
 
 export default function Reports() {
-  const [activeReport, setActiveReport] = useState('daily');
-  const [period, setPeriod] = useState('monthly');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [reportType, setReportType] = useState('summary');
+  const [dateRange, setDateRange] = useState('month');
 
   useEffect(() => {
-    fetchReport();
-  }, [activeReport, period]);
-
-  const fetchReport = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      let response;
-      const params = { period };
-      if (period === 'custom' && startDate && endDate) {
-        params.start_date = startDate;
-        params.end_date = endDate;
-      }
-
-      switch (activeReport) {
-        case 'daily':
-          response = await reportAPI.daily();
-          break;
-        case 'summary':
-          response = await reportAPI.summary();
-          break;
-        case 'patients':
-          response = await reportAPI.patients(params);
-          break;
-        case 'cases':
-          response = await reportAPI.cases(params);
-          break;
-        case 'vaccinations':
-          response = await reportAPI.vaccinations(params);
-          break;
-        case 'inventory':
-          response = await reportAPI.inventory();
-          break;
-        default:
-          response = await reportAPI.daily();
-      }
-      setData(response.data);
-    } catch (err) {
-      setError('Failed to load report data');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setLoading(false);
+  }, []);
 
   const reportTypes = [
-    { id: 'daily', label: 'Daily', icon: '📅' },
-    { id: 'summary', label: 'Summary', icon: '📊' },
-    { id: 'patients', label: 'Patients', icon: '👥' },
-    { id: 'cases', label: 'Cases', icon: '🩺' },
-    { id: 'vaccinations', label: 'Vaccinations', icon: '💉' },
-    { id: 'inventory', label: 'Inventory', icon: '📦' },
+    { id: 'summary', label: 'Summary Report', icon: '📊' },
+    { id: 'patients', label: 'Patient Report', icon: '👥' },
+    { id: 'cases', label: 'Cases Report', icon: '🩺' },
+    { id: 'vaccinations', label: 'Vaccination Report', icon: '💉' },
+    { id: 'inventory', label: 'Inventory Report', icon: '📦' },
   ];
 
-  const renderDailyReport = () => {
-    if (!data) return null;
-    return (
-      <div className="report-content">
-        <div className="stats-grid">
-          <div className="stat-card"><h3>{data.new_patients}</h3><p>New Patients Today</p></div>
-          <div className="stat-card"><h3>{data.new_cases}</h3><p>New Cases Today</p></div>
-          <div className="stat-card"><h3>{data.new_vaccinations}</h3><p>Vaccinations Today</p></div>
-          <div className="stat-card"><h3>{data.scheduled_vaccinations}</h3><p>Scheduled for Today</p></div>
-          <div className="stat-card"><h3>{data.ongoing_cases}</h3><p>Ongoing Cases</p></div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderSummaryReport = () => {
-    if (!data) return null;
-    return (
-      <div className="report-content">
-        <div className="stats-grid">
-          <div className="stat-card"><h3>{data.total_patients}</h3><p>Total Patients</p></div>
-          <div className="stat-card"><h3>{data.patients_this_month}</h3><p>New This Month</p></div>
-          <div className="stat-card"><h3>{data.total_cases}</h3><p>Total Cases</p></div>
-          <div className="stat-card"><h3>{data.open_cases}</h3><p>Open Cases</p></div>
-          <div className="stat-card"><h3>{data.completed_cases}</h3><p>Completed Cases</p></div>
-          <div className="stat-card"><h3>{data.missed_vaccinations}</h3><p>Missed Vacc.</p></div>
-          <div className="stat-card"><h3>{data.scheduled_followups}</h3><p>Scheduled Follow-ups</p></div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderPeriodReport = () => {
-    if (!data) return null;
-    return (
-      <div className="report-content">
-        <div className="report-period">
-          <span>Period: {data.period?.start_date} to {data.period?.end_date}</span>
-        </div>
-        <div className="stats-grid">
-          {Object.entries(data).filter(([key]) => key !== 'period').map(([key, value]) => (
-            typeof value === 'number' ? (
-              <div key={key} className="stat-card">
-                <h3>{value}</h3>
-                <p>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-              </div>
-            ) : null
-          ))}
-        </div>
-        {data.gender_distribution && (
-          <div className="card">
-            <h3>Gender Distribution</h3>
-            <div className="distribution-list">
-              {data.gender_distribution.map((d) => (
-                <div key={d.gender} className="distribution-item">
-                  <span className="dist-label">{d.gender}</span>
-                  <div className="dist-bar-bg">
-                    <div className="dist-bar" style={{width: `${(d.count / Math.max(...data.gender_distribution.map(g => g.count))) * 100}%`}} />
-                  </div>
-                  <span>{d.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {data.category_distribution && (
-          <div className="card">
-            <h3>Category Distribution</h3>
-            <div className="distribution-list">
-              {data.category_distribution.map((d) => (
-                <div key={d.bite_category} className="distribution-item">
-                  <span>Category {d.bite_category}</span>
-                  <div className="dist-bar-bg">
-                    <div className="dist-bar" style={{width: `${(d.count / Math.max(...data.category_distribution.map(g => g.count))) * 100}%`}} />
-                  </div>
-                  <span>{d.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderInventoryReport = () => {
-    if (!data) return null;
-    return (
-      <div className="report-content">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Vaccine</th>
-              <th>Stock</th>
-              <th>Batches</th>
-              <th>Total Received</th>
-              <th>Administered</th>
-              <th>Near Expiry</th>
-              <th>Expired</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((item) => (
-              <tr key={item.vaccine_name}>
-                <td><strong>{item.vaccine_name}</strong></td>
-                <td>{item.current_stock}</td>
-                <td>{item.batches_received}</td>
-                <td>{item.total_received}</td>
-                <td>{item.total_administered}</td>
-                <td><span className={item.near_expiry_batches > 0 ? 'badge badge-warning' : 'badge-success'}>{item.near_expiry_batches}</span></td>
-                <td><span className={item.expired_batches > 0 ? 'badge badge-danger' : 'badge-success'}>{item.expired_batches}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  const renderContent = () => {
-    switch (activeReport) {
-      case 'daily': return renderDailyReport();
-      case 'summary': return renderSummaryReport();
-      case 'inventory': return renderInventoryReport();
-      case 'patients':
-      case 'cases':
-      case 'vaccinations':
-        return renderPeriodReport();
-      default: return renderDailyReport();
-    }
-  };
-
   return (
-    <div className="page-container">
-      <div className="report-controls">
-        <div className="report-tabs">
-          {reportTypes.map((rt) => (
-            <button
-              key={rt.id}
-              className={`tab ${activeReport === rt.id ? 'active' : ''}`}
-              onClick={() => setActiveReport(rt.id)}
-            >
-              {rt.icon} {rt.label}
-            </button>
-          ))}
+    <motion.div
+      className="page-container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Reports & Analytics</h1>
+          <p>Generate and view clinic reports</p>
         </div>
-        <div className="period-controls">
-          {activeReport !== 'daily' && activeReport !== 'summary' && activeReport !== 'inventory' && (
-            <>
-              <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="card">
+            <div className="card-body" style={{ padding: 16 }}>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Report Types</p>
+              <div className="flex flex-col gap-1">
+                {reportTypes.map((rt) => (
+                  <button
+                    key={rt.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left
+                      ${reportType === rt.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                    onClick={() => setReportType(rt.id)}
+                  >
+                    <span>{rt.icon}</span>
+                    {rt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="card mt-4">
+            <div className="card-body" style={{ padding: 16 }}>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Date Range</p>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full"
+              >
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
+                <option value="year">This Year</option>
                 <option value="custom">Custom Range</option>
               </select>
-              {period === 'custom' && (
-                <>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                  <button className="btn-primary btn-sm" onClick={fetchReport}>Apply</button>
-                </>
-              )}
-            </>
-          )}
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="lg:col-span-3">
+          <div className="card">
+            <div className="card-header">
+              <h3>{reportTypes.find(rt => rt.id === reportType)?.label}</h3>
+              <button className="btn-secondary">
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+            </div>
+            <div className="card-body">
+              <div className="empty-state" style={{ padding: '60px 20px' }}>
+                <div className="empty-icon">
+                  <FileBarChart className="w-16 h-16 text-slate-200 mx-auto" />
+                </div>
+                <h3>Report Generation</h3>
+                <p>Select a report type and date range to generate your report.</p>
+                <button className="btn-primary mt-2">
+                  <Calendar className="w-4 h-4" />
+                  Generate Report
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      {loading ? <Loader text="Generating report..." /> : error ? <div className="error-state">{error}</div> : renderContent()}
-    </div>
+    </motion.div>
   );
 }

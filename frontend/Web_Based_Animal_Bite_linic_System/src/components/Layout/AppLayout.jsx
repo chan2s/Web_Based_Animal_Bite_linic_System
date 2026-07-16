@@ -1,43 +1,66 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
-const pageTitles = {
-  '/dashboard': 'Dashboard',
-  '/patients': 'Patient Management',
-  '/patients/new': 'Register New Patient',
-  '/cases': 'Bite Case Management',
-  '/cases/new': 'Record New Bite Case',
-  '/vaccinations': 'Vaccination Management',
-  '/inventory': 'Vaccine Inventory',
-  '/reports': 'Reports & Analytics',
-  '/users': 'User Management',
-  '/users/new': 'Create New User',
-  '/audit-logs': 'Audit Logs',
-  '/profile': 'My Profile',
+const pageConfig = {
+  '/dashboard': { title: 'Dashboard', subtitle: 'Overview of your clinic operations' },
+  '/patients': { title: 'Patient Management', subtitle: 'View and manage patient records' },
+  '/patients/new': { title: 'Register New Patient', subtitle: 'Add a new patient to the system' },
+  '/cases': { title: 'Bite Case Management', subtitle: 'Track and manage animal bite cases' },
+  '/cases/new': { title: 'Record New Bite Case', subtitle: 'Document a new animal bite incident' },
+  '/vaccinations': { title: 'Vaccination Management', subtitle: 'Track patient vaccination schedules' },
+  '/vaccinations/new': { title: 'Record Vaccination', subtitle: 'Administer and record a vaccine dose' },
+  '/inventory': { title: 'Vaccine Inventory', subtitle: 'Manage vaccine stock and supplies' },
+  '/reports': { title: 'Reports & Analytics', subtitle: 'Insights and data about your clinic' },
+  '/users': { title: 'User Management', subtitle: 'Manage system users and permissions' },
+  '/audit-logs': { title: 'Audit Logs', subtitle: 'Track system changes and activity' },
+  '/profile': { title: 'My Profile', subtitle: 'View and update your profile information' },
+  '/appointments/book': { title: 'Book Appointment', subtitle: 'Schedule a new appointment' },
+  '/appointments/my': { title: 'My Appointments', subtitle: 'View your appointment history' },
+  '/appointments/manage': { title: 'Appointment Management', subtitle: 'Manage all clinic appointments' },
+  '/chat': { title: 'Messages', subtitle: 'Communicate with patients and staff' },
 };
 
 export default function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
-  // Find the best matching title
   const path = location.pathname;
-  const title = pageTitles[path] || 
-    (path.startsWith('/patients/') ? 'Patient Details' :
-     path.startsWith('/cases/') ? 'Case Details' :
-     path.startsWith('/users/') ? 'User Details' :
-     'Dashboard');
+  const config = pageConfig[path] || (() => {
+    if (path.startsWith('/patients/')) return { title: 'Patient Details', subtitle: 'View patient information and records' };
+    if (path.startsWith('/cases/')) return { title: 'Case Details', subtitle: 'View bite case information' };
+    if (path.startsWith('/users/')) return { title: 'User Details', subtitle: 'View user information' };
+    return { title: 'Dashboard', subtitle: 'Overview of your clinic operations' };
+  })();
+
+  const handleToggle = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  const handleMobileToggle = useCallback(() => {
+    setMobileOpen(prev => !prev);
+  }, []);
+
+  const handleMobileClose = useCallback(() => {
+    setMobileOpen(false);
+  }, []);
 
   return (
     <div className="app-layout">
       <Sidebar
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onToggle={handleToggle}
+        mobileOpen={mobileOpen}
+        onMobileClose={handleMobileClose}
       />
       <div className="main-content">
-        <Header title={title} />
+        <Header
+          title={config.title}
+          subtitle={config.subtitle}
+          onMenuToggle={handleMobileToggle}
+        />
         <main className="content-area">
           <Outlet />
         </main>

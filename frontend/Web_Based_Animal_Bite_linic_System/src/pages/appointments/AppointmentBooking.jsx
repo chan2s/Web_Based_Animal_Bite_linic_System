@@ -1,406 +1,229 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { appointmentAPI, authAPI } from '../../api/axios';
+import { motion } from 'framer-motion';
+import { appointmentAPI } from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
 import Loader from '../../components/common/Loader';
+import { Calendar, Clock, User, Save, X } from 'lucide-react';
 
 export default function AppointmentBooking() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isPatient = user?.profile?.role === 'patient';
-  const [step, setStep] = useState(1); // 1: details, 2: confirm, 3: success
+  const { user, hasRole } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [clinicInfo, setClinicInfo] = useState(null);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState('');
-  const [profileLoaded, setProfileLoaded] = useState(false);
-  const [profileCompleted, setProfileCompleted] = useState(true);
-  const [updateProfileOpt, setUpdateProfileOpt] = useState(false);
+  const [success, setSuccess] = useState(false);
+
   const [formData, setFormData] = useState({
-    patient_name: '',
-    patient_phone: '',
-    patient_email: '',
+    patient: '',
     appointment_date: '',
     time_slot: '',
-    reason: 'new_bite',
-    reason_other: '',
+    reason: 'vaccination',
     notes: '',
   });
-  const [bookingResult, setBookingResult] = useState(null);
-  const minDate = new Date().toISOString().split('T')[0];
-  const submitLockRef = useRef(false);
+
+  const [patients, setPatients] = useState([]);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [showPatientSelect, setShowPatientSelect] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const isPatient = hasRole('patient');
+
+  const timeSlots = [
+    '08:00-08:30', '08:30-09:00', '09:00-09:30', '09:30-10:00',
+    '10:00-10:30', '10:30-11:00', '11:00-11:30', '13:00-13:30',
+    '13:30-14:00', '14:00-14:30', '14:30-15:00', '15:00-15:30',
+    '15:30-16:00', '16:00-16:30',
+  ];
 
   useEffect(() => {
-    fetchInitialData();
+    if (!isPatient) {
+      fetchPatients();
+    }
   }, []);
 
-  const fetchInitialData = async () => {
+  const fetchPatients = async (search = '') => {
     try {
-      setLoading(true);
-      const [clinicRes, profileRes] = await Promise.allSettled([
-        appointmentAPI.clinicInfo(),
-        authAPI.getPatientProfile(),
-      ]);
-      
-      if (clinicRes.status === 'fulfilled') {
-        setClinicInfo(clinicRes.value.data);
-      }
-      
-      if (profileRes.status === 'fulfilled') {
-        const profileData = profileRes.value.data;
-        // profile_completed is now a top-level field
-        const isComplete = profileData?.profile_completed === true;
-        setProfileCompleted(isComplete);
-        
-        // Pre-fill form from profile data (flattened format)
-        if (profileData) {
-          setFormData((prev) => ({
-            ...prev,
-            patient_name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || prev.patient_name,
-            patient_phone: profileData.contact_number || prev.patient_phone,
-            patient_email: profileData.email || prev.patient_email,
-          }));
-        }
-        setProfileLoaded(true);
-      }
-    } catch (err) {
-      console.error('Failed to load initial data:', err);
-    } finally {
-      setLoading(false);
+      const { patientAPI } = await import('../../api/axios');
+      const params = search ? { search } : {};
+      const response = await patientAPI.list(params);
+      setPatients(response.data.results || response.data || []);
+    } catch (error) {
+      console.error('Failed to load patients:', error);
     }
   };
 
-  const fetchClinicInfo = async () => {
-    try {
-      const res = await appointmentAPI.clinicInfo();
-      setClinicInfo(res.data);
-    } catch (err) {
-      console.error('Failed to load clinic info:', err);
-    }
-  };
-
-  const handleDateChange = async (e) => {
-    const date = e.target.value;
-    setFormData({ ...formData, appointment_date: date, time_slot: '' });
-    setSelectedSlot('');
-    
-    if (!date) return;
-    
-    setSlotsLoading(true);
-    setError('');
-    try {
-      const res = await appointmentAPI.availableSlots(date);
-      setAvailableSlots(res.data.slots || []);
-      if (res.data.clinic_info) setClinicInfo(res.data.clinic_info);
-    } catch (err) {
-      setError('Failed to load available slots.');
-      setAvailableSlots([]);
-    } finally {
-      setSlotsLoading(false);
-    }
-  };
-
-  const handleSlotSelect = (time) => {
-    setSelectedSlot(time);
-    setFormData({ ...formData, time_slot: time });
+  const handlePatientSearch = (e) => {
+    const query = e.target.value;
+    setPatientSearch(query);
+    if (query.length > 1) fetchPatients(query);
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleProceedToConfirm = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.patient_name || !formData.patient_phone || !formData.appointment_date || !formData.time_slot) {
-      setError('Please fill in all required fields.');
-      return;
-    }
-    if (formData.reason === 'other' && !formData.reason_other) {
-      setError('Please specify the reason for your visit.');
-      return;
-    }
+    setSaving(true);
     setError('');
-    setStep(2);
-  };
-
-  const handleConfirmBooking = async () => {
-    if (submitLockRef.current) return;
-    submitLockRef.current = true;
-    setSubmitting(true);
-    setError('');
-    
     try {
-      const payload = { ...formData };
-      const res = await appointmentAPI.create(payload);
-      
-      // If user opted to update their profile with booking details
-      if (updateProfileOpt) {
-        try {
-          await authAPI.updatePatientProfile({
-            phone: formData.patient_phone,
-          });
-        } catch (e) {
-          console.error('Failed to auto-update profile:', e);
-        }
-      }
-      
-      setBookingResult(res.data);
-      setStep(3);
+      const payload = isPatient ? {
+        appointment_date: formData.appointment_date,
+        time_slot: formData.time_slot,
+        reason: formData.reason,
+        notes: formData.notes,
+      } : formData;
+      await appointmentAPI.create(payload);
+      setSuccess(true);
+      setTimeout(() => navigate('/appointments/my'), 1500);
     } catch (err) {
-      const data = err.response?.data;
-      if (data) {
-        const msgs = Object.entries(data)
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-          .join('\n');
-        setError(msgs);
-      } else {
-        setError('Booking failed. Please try again.');
-      }
+      setError(err.response?.data?.detail || 'Failed to book appointment.');
     } finally {
-      setSubmitting(false);
-      submitLockRef.current = false;
+      setSaving(false);
     }
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-  };
-
-  // ── SUCCESS STEP ──
-  if (step === 3 && bookingResult) {
+  if (success) {
     return (
-      <div className="page-container">
-        <div className="card" style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
-          <div className="card-body" style={{ padding: 40 }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
-            <h2 style={{ marginBottom: 8 }}>Appointment Booked!</h2>
-            <p style={{ color: '#64748b', marginBottom: 24 }}>Your vaccination appointment has been confirmed.</p>
-            
-            <div className="booking-success-details" style={{ background: '#f8fafc', borderRadius: 12, padding: 24, marginBottom: 24, textAlign: 'left' }}>
-              <div className="info-row"><span className="info-label">Appointment #</span><span className="info-value" style={{ fontFamily: 'monospace', fontWeight: 700 }}>{bookingResult.appointment_number}</span></div>
-              <div className="info-row"><span className="info-label">Patient</span><span className="info-value">{bookingResult.patient_name}</span></div>
-              <div className="info-row"><span className="info-label">Date</span><span className="info-value">{formatDate(bookingResult.appointment_date)}</span></div>
-              <div className="info-row"><span className="info-label">Time</span><span className="info-value">{bookingResult.time_slot}</span></div>
-              <div className="info-row"><span className="info-label">Status</span><span className="info-value"><span className="badge badge-warning">{bookingResult.status}</span></span></div>
-            </div>
-
-            <div style={{ background: '#eef2ff', borderRadius: 8, padding: 16, marginBottom: 24, fontSize: 14, color: '#4338ca', textAlign: 'left' }}>
-              📋 <strong>Please Note:</strong><br/>
-              • Your appointment is currently <strong>pending</strong> and needs staff approval.<br/>
-              • Please arrive 10 minutes before your scheduled time.<br/>
-              • Bring any previous vaccination records if available.<br/>
-              • To cancel or reschedule, visit the "My Appointments" page.
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <button className="btn-primary" onClick={() => navigate('/appointments/my')}>View My Appointments</button>
-              <button className="btn-secondary" onClick={() => { setStep(1); setFormData({ patient_name: '', patient_phone: '', patient_email: '', appointment_date: '', time_slot: '', reason: 'new_bite', reason_other: '', notes: '' }); setSelectedSlot(''); setAvailableSlots([]); }}>Book Another</button>
-            </div>
+      <motion.div
+        className="flex items-center justify-center py-20"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
           </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">Appointment Booked!</h3>
+          <p className="text-sm text-slate-500">Redirecting to your appointments...</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
-  // ── CONFIRM STEP ──
-  if (step === 2) {
-    return (
-      <div className="page-container">
-        <div className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
-          <div className="card-header"><h3>Confirm Your Appointment</h3></div>
-          <div className="card-body">
-            {error && <div className="error-message" style={{ whiteSpace: 'pre-line', marginBottom: 16 }}>⚠️ {error}</div>}
-            
-            <div className="booking-summary" style={{ background: '#f8fafc', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-              <div className="info-row"><span className="info-label">Patient</span><span className="info-value">{formData.patient_name}</span></div>
-              <div className="info-row"><span className="info-label">Phone</span><span className="info-value">{formData.patient_phone}</span></div>
-              {formData.patient_email && <div className="info-row"><span className="info-label">Email</span><span className="info-value">{formData.patient_email}</span></div>}
-              <div className="info-row"><span className="info-label">Date</span><span className="info-value">{formatDate(formData.appointment_date)}</span></div>
-              <div className="info-row"><span className="info-label">Time</span><span className="info-value"><strong>{formData.time_slot}</strong></span></div>
-              <div className="info-row"><span className="info-label">Reason</span><span className="info-value">{formData.reason === 'other' ? formData.reason_other : formData.reason?.replace(/_/g, ' ')}</span></div>
-              {formData.notes && <div className="info-row"><span className="info-label">Notes</span><span className="info-value">{formData.notes}</span></div>}
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button className="btn-secondary" onClick={() => setStep(1)} disabled={submitting}>
-                ← Back
-              </button>
-              <button className="btn-primary" onClick={handleConfirmBooking} disabled={submitting}>
-                {submitting ? (
-                  <span className="btn-loading"><span className="spinner"></span> Booking...</span>
-                ) : '✅ Confirm Booking'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── BOOKING FORM STEP ──
   return (
-    <div className="page-container">
-      <div className="card" style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div className="card-header">
-          <h3>📅 Book a Vaccination Appointment</h3>
-        </div>
-        <div className="card-body">
-          {/* Incomplete profile warning */}
-          {profileLoaded && !profileCompleted && (
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #fff7ed, #ffedd5)',
-                border: '1px solid #fed7aa',
-                borderRadius: 12,
-                padding: '14px 18px',
-                marginBottom: 20,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 10,
-              }}
-            >
-              <span style={{ fontSize: 20, lineHeight: 1 }}>⚠️</span>
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: 14, color: '#9a3412', display: 'block', marginBottom: 4 }}>
-                  Your profile is incomplete
-                </strong>
-                <p style={{ fontSize: 13, color: '#c2410c', margin: 0, lineHeight: 1.5 }}>
-                  Please complete your profile before booking an appointment.
-                </p>
-                <button
-                  className="btn-primary"
-                  style={{ padding: '8px 16px', fontSize: 13, marginTop: 10, background: '#ea580c', border: 'none' }}
-                  onClick={() => navigate('/profile')}
+    <motion.div
+      className="form-page"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="card">
+        <h2>Book Appointment</h2>
+        {error && <div className="error-message">⚠️ {error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          {!isPatient && (
+            <>
+              <p className="form-section-title">Patient</p>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Search & Select Patient *</label>
+                  <div className="patient-search-wrapper">
+                    <input
+                      type="text"
+                      placeholder="Search patients..."
+                      value={patientSearch}
+                      onChange={handlePatientSearch}
+                      onFocus={() => setShowPatientSelect(true)}
+                      onBlur={() => setTimeout(() => setShowPatientSelect(false), 200)}
+                    />
+                    {showPatientSelect && (
+                      <div className="patient-search-dropdown">
+                        {patients.length === 0 ? (
+                          <div className="dropdown-empty">No patients found.</div>
+                        ) : (
+                          patients.map((p) => (
+                            <div
+                              key={p.id}
+                              className={`dropdown-item ${Number(formData.patient) === p.id ? 'selected' : ''}`}
+                              onClick={() => {
+                                setFormData({ ...formData, patient: p.id });
+                                setShowPatientSelect(false);
+                              }}
+                            >
+                              <strong>{p.full_name || `${p.first_name} ${p.last_name}`}</strong>
+                              <span className="patient-id">{p.patient_id_display}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <p className="form-section-title">Appointment Details</p>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Appointment Date *</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="date"
+                  name="appointment_date"
+                  value={formData.appointment_date}
+                  onChange={handleChange}
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Time Slot *</label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <select
+                  name="time_slot"
+                  value={formData.time_slot}
+                  onChange={handleChange}
+                  required
+                  className="pl-10"
                 >
-                  Complete Profile
-                </button>
-              </div>
-            </div>
-          )}
-
-          {clinicInfo && (
-            <div className="clinic-hours-bar" style={{ display: 'flex', gap: 20, padding: '12px 16px', background: '#eef2ff', borderRadius: 8, marginBottom: 20, fontSize: 13, color: '#4338ca', flexWrap: 'wrap' }}>
-              <span>🕐 Hours: {clinicInfo.opening_time} – {clinicInfo.closing_time}</span>
-              <span>⏱ Slot Duration: {clinicInfo.appointment_duration_minutes}min</span>
-              <span>📋 Max/Day: {clinicInfo.max_appointments_per_day}</span>
-            </div>
-          )}
-
-          {error && <div className="error-message" style={{ whiteSpace: 'pre-line', marginBottom: 16 }}>⚠️ {error}</div>}
-
-          <form onSubmit={handleProceedToConfirm}>
-            <h3 className="form-section-title">Your Information</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Full Name *</label>
-                <input name="patient_name" value={formData.patient_name} onChange={handleChange} placeholder="Your full name" required />
-              </div>
-              <div className="form-group">
-                <label>Phone *</label>
-                <input name="patient_phone" value={formData.patient_phone} onChange={handleChange} placeholder="Contact number" required />
-              </div>
-              <div className="form-group">
-                <label>Email</label>
-                <input type="email" name="patient_email" value={formData.patient_email} onChange={handleChange} placeholder="email@example.com" />
-              </div>
-            </div>
-
-            <h3 className="form-section-title">Select Date & Time</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Appointment Date *</label>
-                <input type="date" name="appointment_date" value={formData.appointment_date} onChange={handleDateChange} min={minDate} required />
-              </div>
-              <div className="form-group">
-                <label>Reason for Visit *</label>
-                <select name="reason" value={formData.reason} onChange={handleChange} required>
-                  <option value="new_bite">New Animal Bite</option>
-                  <option value="follow_up">Follow-up Dose</option>
-                  <option value="booster">Booster</option>
-                  <option value="other">Other</option>
+                  <option value="">Select a time slot</option>
+                  {timeSlots.map((slot) => (
+                    <option key={slot} value={slot}>{slot}</option>
+                  ))}
                 </select>
               </div>
             </div>
+          </div>
 
-            {formData.reason === 'other' && (
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label>Please Specify *</label>
-                <input name="reason_other" value={formData.reason_other} onChange={handleChange} placeholder="Describe your reason" required />
-              </div>
-            )}
-
-            {/* Time Slot Selector */}
-            {formData.appointment_date && (
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label>Available Time Slots *</label>
-                {slotsLoading ? (
-                  <div style={{ padding: 20 }}><Loader size={24} text="Checking availability..." /></div>
-                ) : availableSlots.length === 0 ? (
-                  <div style={{ padding: 16, background: '#fef2f2', borderRadius: 8, color: '#dc2626', fontSize: 14 }}>
-                    ⚠️ No available slots for this date. The clinic may be closed or fully booked. Please select another date.
-                  </div>
-                ) : (
-                  <div className="time-slots-grid">
-                    {availableSlots.map((slot) => (
-                      <button
-                        key={slot.time}
-                        type="button"
-                        className={`time-slot-btn ${selectedSlot === slot.time ? 'selected' : ''} ${!slot.available ? 'disabled' : ''}`}
-                        onClick={() => slot.available && handleSlotSelect(slot.time)}
-                        disabled={!slot.available}
-                        title={!slot.available ? 'Slot is full' : `Book at ${slot.time}`}
-                      >
-                        <span className="slot-time">{slot.time}</span>
-                        {slot.available ? (
-                          <span className="slot-status available">Available</span>
-                        ) : (
-                          <span className="slot-status full">Full</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <h3 className="form-section-title">Additional Notes</h3>
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label>Notes (Optional)</label>
-              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} placeholder="Any additional information..." />
+          <div className="form-row">
+            <div className="form-group">
+              <label>Reason</label>
+              <select name="reason" value={formData.reason} onChange={handleChange}>
+                <option value="vaccination">Vaccination</option>
+                <option value="follow_up">Follow-up</option>
+                <option value="consultation">Consultation</option>
+                <option value="other">Other</option>
+              </select>
             </div>
+          </div>
 
-            {/* Update profile option — only for patients */}
-            {isPatient && (
-              <div className="checkbox-group" style={{ marginTop: 4, marginBottom: 16 }}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={updateProfileOpt}
-                    onChange={(e) => setUpdateProfileOpt(e.target.checked)}
-                  />
-                  ☐ Update my profile with these new details
-                </label>
-              </div>
-            )}
+          <div className="form-group" style={{ marginBottom: 14 }}>
+            <label>Notes</label>
+            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} />
+          </div>
 
-            <div className="form-actions">
-              <button type="submit" className="btn-primary" disabled={!formData.time_slot}>
-                Review Booking →
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => navigate('/appointments/my')}>
-                My Appointments
-              </button>
-            </div>
-          </form>
-        </div>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? (
+                <span className="flex items-center gap-2"><span className="spinner" /> Booking...</span>
+              ) : (
+                <><Calendar className="w-4 h-4" /> Book Appointment</>
+              )}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
+              <X className="w-4 h-4" /> Cancel
+            </button>
+          </div>
+        </form>
       </div>
-    </div>
+    </motion.div>
   );
 }

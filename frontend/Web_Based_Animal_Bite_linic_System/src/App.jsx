@@ -1,7 +1,10 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AppLayout from './components/Layout/AppLayout';
+
+const ChatBotFloating = lazy(() => import('./components/chatbot'));
 
 // Pages
 import LandingPage from './pages/landing/LandingPage';
@@ -26,6 +29,7 @@ import AppointmentBooking from './pages/appointments/AppointmentBooking';
 import MyAppointments from './pages/appointments/MyAppointments';
 import AppointmentManagement from './pages/appointments/AppointmentManagement';
 import PatientDashboard from './pages/dashboard/PatientDashboard';
+import ChatPage from './pages/chat/ChatPage';
 import ErrorPage from './pages/errors/ErrorPage';
 
 import './App.css';
@@ -96,6 +100,10 @@ function AppRoutes() {
         }}
       />
       
+      <Suspense fallback={null}>
+        <ChatBotFloating />
+      </Suspense>
+      
       <Routes>
         {/* Public Landing Page */}
         <Route path="/" element={<LandingPage />} />
@@ -139,6 +147,9 @@ function AppRoutes() {
           <Route path="appointments/book" element={<AppointmentBooking />} />
           <Route path="appointments/my" element={<MyAppointments />} />
           <Route path="appointments/manage" element={<AppointmentManagement />} />
+          
+          {/* Chat */}
+          <Route path="chat" element={<ChatPage />} />
           
           {/* Audit Logs (Admin only) */}
           <Route path="audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />

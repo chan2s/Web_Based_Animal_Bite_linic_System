@@ -1,101 +1,105 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertTriangle, Info, CheckCircle, XCircle, X } from 'lucide-react';
+
+const modalConfig = {
+  danger: {
+    icon: AlertTriangle,
+    bg: '#fee2e2',
+    color: '#ef4444',
+    title: 'Confirm Action',
+  },
+  warning: {
+    icon: AlertTriangle,
+    bg: '#fef3c7',
+    color: '#f59e0b',
+    title: 'Warning',
+  },
+  info: {
+    icon: Info,
+    bg: '#dbeafe',
+    color: '#3b82f6',
+    title: 'Information',
+  },
+  success: {
+    icon: CheckCircle,
+    bg: '#d1fae5',
+    color: '#10b981',
+    title: 'Success',
+  },
+};
 
 export default function ConfirmModal({
-  isOpen,
-  onClose,
+  show,
   onConfirm,
-  title = 'Confirm Action',
-  message = 'Are you sure you want to proceed?',
+  onCancel,
+  title,
+  message,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
   loading = false,
-  children,
 }) {
-  const theme = {
-    danger: { bg: '#ef4444', hover: '#dc2626', light: '#fef2f2', icon: '🗑️' },
-    warning: { bg: '#f59e0b', hover: '#d97706', light: '#fffbeb', icon: '⚠️' },
-    primary: { bg: '#6366f1', hover: '#4f46e5', light: '#eef2ff', icon: 'ℹ️' },
-    success: { bg: '#10b981', hover: '#059669', light: '#f0fdf4', icon: '✅' },
-  };
-
-  const colors = theme[variant] || theme.danger;
+  const config = modalConfig[variant] || modalConfig.danger;
+  const Icon = config.icon;
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      {show && (
         <motion.div
           className="modal-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          onClick={onClose}
-          style={{ backdropFilter: 'blur(4px)' }}
+          transition={{ duration: 0.15 }}
+          onClick={onCancel}
         >
           <motion.div
-            className="modal"
+            className="modal-content"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 440 }}
           >
-            <div style={{ padding: '24px 24px 0', textAlign: 'center' }}>
+            <div className="modal-header">
               <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  background: colors.light,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 16px',
-                  fontSize: 28,
-                }}
+                className="modal-icon"
+                style={{ background: config.bg, color: config.color }}
               >
-                {colors.icon}
+                <Icon className="w-5 h-5" />
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
-                {title}
-              </h3>
-              <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, marginBottom: 4 }}>
-                {message}
-              </p>
-              {children}
+              <h3 className="modal-title">{title || config.title}</h3>
+              <button
+                onClick={onCancel}
+                className="ml-auto p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-                justifyContent: 'center',
-                padding: '20px 24px 24px',
-              }}
-            >
-              <button
-                className={`btn-primary confirm-btn-${variant}`}
-                onClick={onConfirm}
-                disabled={loading}
-                style={{ minWidth: 120, padding: '10px 24px' }}
-              >
-                {loading ? (
-                  <span className="btn-loading">
-                    <span className="spinner"></span> Processing...
-                  </span>
-                ) : (
-                  confirmText
-                )}
-              </button>
+            <div className="modal-body">
+              {message}
+            </div>
+
+            <div className="modal-actions">
               <button
                 className="btn-secondary"
-                onClick={onClose}
+                onClick={onCancel}
                 disabled={loading}
-                style={{ minWidth: 100 }}
               >
                 {cancelText}
+              </button>
+              <button
+                className={variant === 'danger' ? 'btn-danger' : variant === 'success' ? 'btn-success' : 'btn-primary'}
+                onClick={onConfirm}
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="spinner" />
+                    Processing...
+                  </span>
+                ) : confirmText}
               </button>
             </div>
           </motion.div>

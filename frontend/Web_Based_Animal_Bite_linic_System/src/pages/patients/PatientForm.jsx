@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { patientAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { Save, X } from 'lucide-react';
 
 export default function PatientForm() {
   const { id } = useParams();
@@ -20,9 +22,7 @@ export default function PatientForm() {
   });
 
   useEffect(() => {
-    if (isEditing) {
-      fetchPatient();
-    }
+    if (isEditing) fetchPatient();
   }, [id]);
 
   const fetchPatient = async () => {
@@ -74,13 +74,18 @@ export default function PatientForm() {
   if (loading) return <Loader text="Loading patient data..." />;
 
   return (
-    <div className="form-page">
+    <motion.div
+      className="form-page"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="card">
         <h2>{isEditing ? 'Edit Patient' : 'Register New Patient'}</h2>
         {error && <div className="error-message">⚠️ {error}</div>}
 
-        <form onSubmit={handleSubmit} className="form">
-          <h3 className="form-section-title">Personal Information</h3>
+        <form onSubmit={handleSubmit}>
+          <p className="form-section-title">Personal Information</p>
           <div className="form-row">
             <div className="form-group">
               <label>First Name *</label>
@@ -134,7 +139,7 @@ export default function PatientForm() {
             </div>
           </div>
 
-          <h3 className="form-section-title">Contact Information</h3>
+          <p className="form-section-title">Contact Information</p>
           <div className="form-row">
             <div className="form-group">
               <label>Phone *</label>
@@ -145,7 +150,7 @@ export default function PatientForm() {
               <input type="email" name="email" value={formData.email} onChange={handleChange} />
             </div>
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Address *</label>
             <textarea name="address" value={formData.address} onChange={handleChange} rows={2} required />
           </div>
@@ -164,7 +169,7 @@ export default function PatientForm() {
             </div>
           </div>
 
-          <h3 className="form-section-title">Emergency Contact</h3>
+          <p className="form-section-title">Emergency Contact</p>
           <div className="form-row">
             <div className="form-group">
               <label>Contact Name *</label>
@@ -180,7 +185,7 @@ export default function PatientForm() {
             </div>
           </div>
 
-          <h3 className="form-section-title">Medical Information</h3>
+          <p className="form-section-title">Medical Information</p>
           <div className="form-row">
             <div className="form-group">
               <label>Allergies</label>
@@ -204,14 +209,25 @@ export default function PatientForm() {
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : isEditing ? 'Update Patient' : 'Register Patient'}
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <span className="spinner" />
+                  Saving...
+                </span>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  {isEditing ? 'Update Patient' : 'Register Patient'}
+                </>
+              )}
             </button>
             <button type="button" className="btn-secondary" onClick={() => navigate('/patients')}>
+              <X className="w-4 h-4" />
               Cancel
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 }

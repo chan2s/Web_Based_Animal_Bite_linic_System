@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { dashboardAPI } from '../../api/axios';
 import StatCard from '../../components/common/StatCard';
 import Loader from '../../components/common/Loader';
+import { Users, Calendar, Stethoscope, CheckCircle, Syringe, ClipboardList, Package, AlertTriangle } from 'lucide-react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+};
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -32,76 +47,36 @@ export default function Dashboard() {
 
   const { overview, category_distribution, low_stock_items, upcoming_followups, monthly_statistics, recent_activities } = data;
 
+  const statCards = [
+    { title: 'Total Patients', value: overview.total_patients, icon: <Users className="w-5 h-5" />, color: '#3b82f6', subtitle: `+${overview.patients_this_month} this month`, onClick: () => navigate('/patients') },
+    { title: "Today's Patients", value: overview.todays_patients, icon: <Calendar className="w-5 h-5" />, color: '#06b6d4', onClick: () => navigate('/patients') },
+    { title: 'Open Cases', value: overview.open_cases, icon: <Stethoscope className="w-5 h-5" />, color: '#ef4444', subtitle: `${overview.ongoing_cases} ongoing`, onClick: () => navigate('/cases') },
+    { title: 'Completed Cases', value: overview.completed_cases, icon: <CheckCircle className="w-5 h-5" />, color: '#10b981', subtitle: `${overview.total_cases} total`, onClick: () => navigate('/cases') },
+    { title: "Today's Vaccinations", value: overview.todays_vaccinations, icon: <Syringe className="w-5 h-5" />, color: '#8b5cf6', subtitle: `${overview.todays_scheduled_vaccinations} scheduled`, onClick: () => navigate('/vaccinations') },
+    { title: 'Upcoming Follow-ups', value: overview.upcoming_followups, icon: <ClipboardList className="w-5 h-5" />, color: '#f59e0b', onClick: () => navigate('/vaccinations') },
+    { title: 'Vaccine Types', value: overview.total_vaccines, icon: <Package className="w-5 h-5" />, color: '#65a30d', onClick: () => navigate('/inventory') },
+    { title: 'Low Stock Items', value: overview.low_stock_count, icon: <AlertTriangle className="w-5 h-5" />, color: overview.low_stock_count > 0 ? '#ef4444' : '#10b981', subtitle: overview.low_stock_count > 0 ? 'Needs attention' : 'All stocked', onClick: () => navigate('/inventory') },
+  ];
+
   return (
-    <div className="dashboard">
+    <motion.div
+      className="dashboard"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Stats Cards */}
       <div className="stats-grid">
-        <StatCard
-          title="Total Patients"
-          value={overview.total_patients}
-          icon="👥"
-          color="#4f46e5"
-          subtitle={`+${overview.patients_this_month} this month`}
-          onClick={() => navigate('/patients')}
-        />
-        <StatCard
-          title="Today's Patients"
-          value={overview.todays_patients}
-          icon="📅"
-          color="#0891b2"
-          onClick={() => navigate('/patients')}
-        />
-        <StatCard
-          title="Open Cases"
-          value={overview.open_cases}
-          icon="🩺"
-          color="#dc2626"
-          subtitle={`${overview.ongoing_cases} ongoing`}
-          onClick={() => navigate('/cases')}
-        />
-        <StatCard
-          title="Completed Cases"
-          value={overview.completed_cases}
-          icon="✅"
-          color="#16a34a"
-          subtitle={`${overview.total_cases} total`}
-          onClick={() => navigate('/cases')}
-        />
-        <StatCard
-          title="Today's Vaccinations"
-          value={overview.todays_vaccinations}
-          icon="💉"
-          color="#9333ea"
-          subtitle={`${overview.todays_scheduled_vaccinations} scheduled`}
-          onClick={() => navigate('/vaccinations')}
-        />
-        <StatCard
-          title="Upcoming Follow-ups"
-          value={overview.upcoming_followups}
-          icon="📋"
-          color="#ea580c"
-          onClick={() => navigate('/vaccinations')}
-        />
-        <StatCard
-          title="Vaccine Types"
-          value={overview.total_vaccines}
-          icon="📦"
-          color="#65a30d"
-          onClick={() => navigate('/inventory')}
-        />
-        <StatCard
-          title="Low Stock Items"
-          value={overview.low_stock_count}
-          icon="⚠️"
-          color={overview.low_stock_count > 0 ? '#dc2626' : '#16a34a'}
-          subtitle={overview.low_stock_count > 0 ? 'Needs attention' : 'All stocked'}
-          onClick={() => navigate('/inventory')}
-        />
+        {statCards.map((card, i) => (
+          <motion.div key={i} variants={itemVariants}>
+            <StatCard {...card} />
+          </motion.div>
+        ))}
       </div>
 
       <div className="dashboard-grid">
         {/* Monthly Statistics */}
-        <div className="card dashboard-card">
+        <motion.div className="card dashboard-card" variants={itemVariants}>
           <div className="card-header">
             <h3>Monthly Statistics</h3>
           </div>
@@ -112,23 +87,29 @@ export default function Dashboard() {
                   <div className="month-label">{stat.label?.split(' ')[0]?.slice(0, 3)}</div>
                   <div className="month-bars">
                     <div className="bar-container">
-                      <div
+                      <motion.div
                         className="bar bar-patients"
-                        style={{ height: `${Math.min((stat.patients / Math.max(...monthly_statistics.map(s => Math.max(s.patients, s.cases, s.vaccinations)), 1)) * 100, 100)}%` }}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.min((stat.patients / Math.max(...monthly_statistics.map(s => Math.max(s.patients, s.cases, s.vaccinations)), 1)) * 100, 100)}%` }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
                         title={`Patients: ${stat.patients}`}
                       />
                     </div>
                     <div className="bar-container">
-                      <div
+                      <motion.div
                         className="bar bar-cases"
-                        style={{ height: `${Math.min((stat.cases / Math.max(...monthly_statistics.map(s => Math.max(s.patients, s.cases, s.vaccinations)), 1)) * 100, 100)}%` }}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.min((stat.cases / Math.max(...monthly_statistics.map(s => Math.max(s.patients, s.cases, s.vaccinations)), 1)) * 100, 100)}%` }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
                         title={`Cases: ${stat.cases}`}
                       />
                     </div>
                     <div className="bar-container">
-                      <div
+                      <motion.div
                         className="bar bar-vaccinations"
-                        style={{ height: `${Math.min((stat.vaccinations / Math.max(...monthly_statistics.map(s => Math.max(s.patients, s.cases, s.vaccinations)), 1)) * 100, 100)}%` }}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.min((stat.vaccinations / Math.max(...monthly_statistics.map(s => Math.max(s.patients, s.cases, s.vaccinations)), 1)) * 100, 100)}%` }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
                         title={`Vaccinations: ${stat.vaccinations}`}
                       />
                     </div>
@@ -143,10 +124,10 @@ export default function Dashboard() {
               <span><span className="dot dot-vaccinations"></span> Vaccinations</span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Case Distribution */}
-        <div className="card dashboard-card">
+        <motion.div className="card dashboard-card" variants={itemVariants}>
           <div className="card-header">
             <h3>Cases by Category</h3>
           </div>
@@ -158,11 +139,15 @@ export default function Dashboard() {
                     <span className="dist-category">Category {cat.bite_category}</span>
                   </div>
                   <div className="dist-bar-bg">
-                    <div
+                    <motion.div
                       className="dist-bar"
-                      style={{
+                      initial={{ width: 0 }}
+                      animate={{
                         width: `${(cat.count / Math.max(...category_distribution.map(c => c.count), 1)) * 100}%`,
-                        backgroundColor: cat.bite_category === 'I' ? '#16a34a' : cat.bite_category === 'II' ? '#ea580c' : '#dc2626'
+                      }}
+                      transition={{ duration: 0.8, delay: 0.2 }}
+                      style={{
+                        backgroundColor: cat.bite_category === 'I' ? '#10b981' : cat.bite_category === 'II' ? '#f59e0b' : '#ef4444',
                       }}
                     />
                   </div>
@@ -171,52 +156,63 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <div className="dashboard-grid">
         {/* Low Stock Alerts */}
-        <div className="card dashboard-card">
+        <motion.div className="card dashboard-card" variants={itemVariants}>
           <div className="card-header">
-            <h3>⚠️ Low Stock Alerts</h3>
+            <h3>Low Stock Alerts</h3>
           </div>
           <div className="card-body">
             {low_stock_items?.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Vaccine</th>
-                    <th>Current Stock</th>
-                    <th>Threshold</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {low_stock_items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td>{item.stock}</td>
-                      <td>{item.threshold}</td>
-                      <td><span className="badge badge-danger">Low Stock</span></td>
+              <div className="table-container" style={{ border: 'none', borderRadius: 0, boxShadow: 'none' }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Vaccine</th>
+                      <th>Current Stock</th>
+                      <th>Threshold</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {low_stock_items.map((item) => (
+                      <tr key={item.id}>
+                        <td className="font-medium">{item.name}</td>
+                        <td>{item.stock}</td>
+                        <td>{item.threshold}</td>
+                        <td><span className="badge badge-danger">Low Stock</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <p className="empty-state">No low stock items ✓</p>
+              <div className="empty-state" style={{ padding: '24px 0' }}>
+                <div className="empty-icon" style={{ fontSize: 32 }}>✓</div>
+                <p style={{ color: '#10b981', fontWeight: 500 }}>All items are well-stocked</p>
+              </div>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Recent Activity */}
-        <div className="card dashboard-card">
+        <motion.div className="card dashboard-card" variants={itemVariants}>
           <div className="card-header">
             <h3>Recent Activity</h3>
           </div>
           <div className="card-body">
             <div className="activity-list">
               {recent_activities?.slice(0, 8).map((activity) => (
-                <div key={activity.id} className="activity-item">
+                <motion.div
+                  key={activity.id}
+                  className="activity-item"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <div className="activity-icon">
                     {activity.action === 'login' && '🔑'}
                     {activity.action === 'create' && '➕'}
@@ -230,46 +226,50 @@ export default function Dashboard() {
                       {activity.user} · {new Date(activity.timestamp).toLocaleString()}
                     </span>
                   </div>
-                </div>
+                </motion.div>
               ))}
               {(!recent_activities || recent_activities.length === 0) && (
-                <p className="empty-state">No recent activity</p>
+                <div className="empty-state" style={{ padding: '24px 0' }}>
+                  <p>No recent activity</p>
+                </div>
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Upcoming Follow-ups */}
       {upcoming_followups?.length > 0 && (
-        <div className="card">
+        <motion.div className="card" variants={itemVariants}>
           <div className="card-header">
-            <h3>📋 Upcoming Follow-ups</h3>
+            <h3>Upcoming Follow-ups</h3>
           </div>
           <div className="card-body">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Patient</th>
-                  <th>Dose</th>
-                  <th>Scheduled Date</th>
-                  <th>Case</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcoming_followups.map((fu) => (
-                  <tr key={fu.id}>
-                    <td>{fu.patient_name}</td>
-                    <td>{fu.dose}</td>
-                    <td>{new Date(fu.date).toLocaleDateString()}</td>
-                    <td>{fu.case_number || 'N/A'}</td>
+            <div className="table-container" style={{ border: 'none', borderRadius: 0, boxShadow: 'none' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Dose</th>
+                    <th>Scheduled Date</th>
+                    <th>Case</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {upcoming_followups.map((fu) => (
+                    <tr key={fu.id}>
+                      <td className="font-medium">{fu.patient_name}</td>
+                      <td>{fu.dose}</td>
+                      <td>{new Date(fu.date).toLocaleDateString()}</td>
+                      <td className="text-slate-500">{fu.case_number || 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

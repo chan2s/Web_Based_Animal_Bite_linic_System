@@ -1,157 +1,160 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { vaccinationAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { Search, Plus, Syringe } from 'lucide-react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.04 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+};
 
 export default function VaccinationList() {
-  const [view, setView] = useState('records'); // records, schedules, missed
-  const [records, setRecords] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [missed, setMissed] = useState([]);
+  const [vaccinations, setVaccinations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [resultFilter, setResultFilter] = useState('');
 
   useEffect(() => {
-    fetchData();
-  }, [view]);
+    fetchVaccinations();
+  }, [search, resultFilter]);
 
-  const fetchData = async () => {
+  const fetchVaccinations = async () => {
     try {
       setLoading(true);
-      if (view === 'records') {
-        const res = await vaccinationAPI.list();
-        setRecords(res.data.results || res.data || []);
-      } else if (view === 'schedules') {
-        const res = await vaccinationAPI.schedules();
-        setSchedules(res.data.results || res.data || []);
-      } else if (view === 'missed') {
-        const res = await vaccinationAPI.missed();
-        setMissed(res.data.missed || []);
-      }
+      const params = {};
+      if (search) params.search = search;
+      if (resultFilter) params.result = resultFilter;
+      const response = await vaccinationAPI.list(params);
+      setVaccinations(response.data.results || response.data || []);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      console.error('Failed to load vaccinations:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchVaccinations();
+  };
+
   const getResultBadge = (result) => {
     const map = {
-      administered: 'badge-success',
+      completed: 'badge-success',
+      scheduled: 'badge-info',
       missed: 'badge-danger',
-      refused: 'badge-warning',
-      contraindicated: 'badge-secondary',
-      cancelled: 'badge-secondary',
+      pending: 'badge-warning',
     };
     return map[result] || 'badge-secondary';
   };
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="view-tabs">
-          <button className={`tab ${view === 'records' ? 'active' : ''}`} onClick={() => setView('records')}>Vaccination Records</button>
-          <button className={`tab ${view === 'schedules' ? 'active' : ''}`} onClick={() => setView('schedules')}>Schedules</button>
-          <button className={`tab ${view === 'missed' ? 'active' : ''}`} onClick={() => setView('missed')}>Missed</button>
+    <motion.div
+      className="page-container"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className="page-header" variants={itemVariants}>
+        <div className="page-header-left">
+          <h1>Vaccinations</h1>
+          <p>Track and manage patient vaccination schedules</p>
         </div>
-        <Link to="/vaccinations/new" className="btn-primary">+ Record Vaccination</Link>
-      </div>
+        <div className="header-actions">
+          <form onSubmit={handleSearch} className="search-form">
+            <input
+              type="text"
+              placeholder="Search by patient name, dose..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="search-input"
+            />
+            <button type="submit" className="btn-search">
+              <Search className="w-4 h-4" />
+            </button>
+          </form>
+          <select value={resultFilter} onChange={(e) => setResultFilter(e.target.value)} className="filter-select">
+            <option value="">All Results</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="completed">Completed</option>
+            <option value="missed">Missed</option>
+            <option value="pending">Pending</option>
+          </select>
+          <Link to="/vaccinations/new" className="btn-primary">
+            <Plus className="w-4 h-4" />
+            Record Vaccination
+          </Link>
+        </div>
+      </motion.div>
 
       {loading ? (
-        <Loader text="Loading..." />
-      ) : view === 'records' && records.length === 0 ? (
-        <div className="empty-state"><p>No vaccination records found.</p></div>
-      ) : view === 'schedules' && schedules.length === 0 ? (
-        <div className="empty-state"><p>No vaccination schedules found.</p></div>
-      ) : view === 'missed' && missed.length === 0 ? (
-        <div className="empty-state"><p>No missed vaccinations! 🎉</p></div>
+        <Loader text="Loading vaccinations..." />
+      ) : vaccinations.length === 0 ? (
+        <motion.div className="empty-state" variants={itemVariants}>
+          <div className="empty-icon">
+            <Syringe className="w-12 h-12 text-slate-300 mx-auto" />
+          </div>
+          <h3>No Vaccinations Found</h3>
+          <p>Record a vaccination to get started.</p>
+          <Link to="/vaccinations/new" className="btn-primary">
+            <Plus className="w-4 h-4" />
+            Record Vaccination
+          </Link>
+        </motion.div>
       ) : (
-        <div className="table-container">
-          {view === 'records' && (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Patient</th>
-                  <th>Dose</th>
-                  <th>Scheduled</th>
-                  <th>Administered</th>
-                  <th>Vaccine</th>
-                  <th>Batch</th>
-                  <th>Result</th>
-                  <th>Administered By</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((r) => (
-                  <tr key={r.id}>
-                    <td><Link to={`/patients/${r.patient}`} className="patient-name">{r.patient_name}</Link></td>
-                    <td>Dose {r.dose_number} ({r.dose_type})</td>
-                    <td>{new Date(r.scheduled_date).toLocaleDateString()}</td>
-                    <td>{r.administered_date ? new Date(r.administered_date).toLocaleDateString() : '—'}</td>
-                    <td>{r.vaccine_name || '—'}</td>
-                    <td>{r.batch_number || '—'}</td>
-                    <td><span className={`badge ${getResultBadge(r.result)}`}>{r.result}</span></td>
-                    <td>{r.administered_by_name || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {view === 'schedules' && (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Patient</th>
-                  <th>Case</th>
-                  <th>Dose</th>
-                  <th>Scheduled Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schedules.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.patient_name}</td>
-                    <td>{s.case_number || '—'}</td>
-                    <td>Dose {s.dose_number} ({s.dose_type})</td>
-                    <td>{new Date(s.scheduled_date).toLocaleDateString()}</td>
-                    <td>
-                      <span className={`badge ${s.is_completed ? 'badge-success' : 'badge-warning'}`}>
-                        {s.is_completed ? 'Completed' : 'Pending'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {view === 'missed' && (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Patient</th>
-                  <th>Dose</th>
-                  <th>Scheduled</th>
-                  <th>Vaccine</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {missed.map((m) => (
-                  <tr key={m.id}>
-                    <td>{m.patient_name}</td>
-                    <td>Dose {m.dose_number} ({m.dose_type})</td>
-                    <td>{new Date(m.scheduled_date).toLocaleDateString()}</td>
-                    <td>{m.vaccine_name || '—'}</td>
-                    <td><Link to={`/patients/${m.patient}`} className="btn-sm">View Patient</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <motion.div className="table-container" variants={itemVariants}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Patient ID</th>
+                <th>Dose</th>
+                <th>Vaccine</th>
+                <th>Scheduled</th>
+                <th>Administered</th>
+                <th>Result</th>
+                <th>Administered By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vaccinations.map((v, i) => (                  <tr
+                    key={v.id}
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${i * 0.03}s` }}
+                  >
+                  <td className="font-medium">
+                    <Link to={`/patients/${v.patient}`} className="patient-name">
+                      {v.patient_name}
+                    </Link>
+                  </td>
+                  <td><span className="patient-id">{v.patient_id_display}</span></td>
+                  <td>Dose {v.dose_number} ({v.dose_type})</td>
+                  <td>{v.vaccine_name || '—'}</td>
+                  <td>{new Date(v.scheduled_date).toLocaleDateString()}</td>
+                  <td>{v.administered_date ? new Date(v.administered_date).toLocaleDateString() : <span className="text-slate-400">—</span>}</td>
+                  <td><span className={`badge ${getResultBadge(v.result)}`}>{v.result}</span></td>
+                  <td className="text-slate-500">{v.administered_by_name || '—'}</td>
+                  <td className="actions-cell">
+                    <Link to={`/patients/${v.patient}`} className="btn-sm" title="View Patient">
+                      👁️
+                    </Link>
+                  </td>                  </tr>
+              ))}
+            </tbody>
+          </table>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

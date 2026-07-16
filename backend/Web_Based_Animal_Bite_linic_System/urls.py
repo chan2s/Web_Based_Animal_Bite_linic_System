@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
+    path('api/users/', include('accounts.user_urls')),
     path('api/patients/', include('patients.urls')),
     path('api/cases/', include('cases.urls')),
     path('api/vaccinations/', include('vaccinations.urls')),
@@ -14,6 +15,8 @@ urlpatterns = [
     path('api/audit-logs/', include('audit_logs.urls')),
     path('api/dashboard/', include('dashboard.urls')),
     path('api/appointments/', include('appointments.urls')),
+    path('api/chat/', include('chat.urls')),
+    path('api/chatbot/', include('chatbot.urls')),
 ]
 
 if settings.DEBUG:

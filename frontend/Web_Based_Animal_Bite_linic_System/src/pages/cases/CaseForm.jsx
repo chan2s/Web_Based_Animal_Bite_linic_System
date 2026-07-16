@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { caseAPI, patientAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { Save, X } from 'lucide-react';
 
 export default function CaseForm() {
   const { id } = useParams();
@@ -50,12 +52,8 @@ export default function CaseForm() {
   });
 
   useEffect(() => {
-    if (isEditing) {
-      fetchCase();
-    }
-    if (!preSelectedPatient) {
-      fetchPatients();
-    }
+    if (isEditing) fetchCase();
+    if (!preSelectedPatient) fetchPatients();
   }, [id]);
 
   const fetchPatients = async (search = '') => {
@@ -120,9 +118,7 @@ export default function CaseForm() {
   const handlePatientSearch = (e) => {
     const query = e.target.value;
     setPatientSearch(query);
-    if (query.length > 1) {
-      fetchPatients(query);
-    }
+    if (query.length > 1) fetchPatients(query);
   };
 
   const selectPatient = (patientId) => {
@@ -145,7 +141,6 @@ export default function CaseForm() {
     setSaving(true);
     setError('');
     try {
-      // Convert string booleans to actual booleans/null for backend
       const getBooleanOrNull = (val) => {
         if (val === 'true') return true;
         if (val === 'false') return false;
@@ -158,7 +153,6 @@ export default function CaseForm() {
         animal_was_provoked: getBooleanOrNull(formData.animal_was_provoked),
         wound_treated_within_24h: getBooleanOrNull(formData.wound_treated_within_24h),
       };
-      delete payload.patientSearch;
       if (isEditing) {
         await caseAPI.update(id, payload);
       } else {
@@ -175,56 +169,65 @@ export default function CaseForm() {
   if (loading) return <Loader text="Loading case data..." />;
 
   return (
-    <div className="form-page">
+    <motion.div
+      className="form-page"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="card">
         <h2>{isEditing ? 'Edit Bite Case' : 'Record New Bite Case'}</h2>
         {error && <div className="error-message">⚠️ {error}</div>}
 
-        <form onSubmit={handleSubmit} className="form">
-          {/* Patient Selection */}
-          <h3 className="form-section-title">Patient Information</h3>
+        <form onSubmit={handleSubmit}>
+          <p className="form-section-title">Patient Information</p>
           {preSelectedPatient ? (
-            <div className="form-group">
-              <label>Selected Patient</label>
-              <p className="selected-patient-info">Patient ID: {preSelectedPatient}</p>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Selected Patient</label>
+                <p className="selected-info">Patient ID: {preSelectedPatient}</p>
+              </div>
             </div>
           ) : (
-            <div className="form-group">
-              <label>Search & Select Patient *</label>
-              <div className="patient-search-wrapper">
-                <input
-                  type="text"
-                  placeholder="Search patients by name or ID..."
-                  value={patientSearch}
-                  onChange={handlePatientSearch}
-                  onFocus={() => setShowPatientSelect(true)}
-                />
-                {showPatientSelect && (
-                  <div className="patient-search-dropdown">
-                    {patients.length === 0 ? (
-                      <div className="dropdown-empty">No patients found. Please register first.</div>
-                    ) : (
-                      patients.map((p) => (
-                        <div
-                          key={p.id}
-                          className={`dropdown-item ${Number(formData.patient) === p.id ? 'selected' : ''}`}
-                          onClick={() => selectPatient(p.id)}
-                        >
-                          <strong>{p.full_name || `${p.first_name} ${p.last_name}`}</strong>
-                          <span className="patient-id">{p.patient_id_display}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Search & Select Patient *</label>
+                <div className="patient-search-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Search patients by name or ID..."
+                    value={patientSearch}
+                    onChange={handlePatientSearch}
+                    onFocus={() => setShowPatientSelect(true)}
+                    onBlur={() => setTimeout(() => setShowPatientSelect(false), 200)}
+                  />
+                  {showPatientSelect && (
+                    <div className="patient-search-dropdown">
+                      {patients.length === 0 ? (
+                        <div className="dropdown-empty">No patients found. Please register first.</div>
+                      ) : (
+                        patients.map((p) => (
+                          <div
+                            key={p.id}
+                            className={`dropdown-item ${Number(formData.patient) === p.id ? 'selected' : ''}`}
+                            onClick={() => selectPatient(p.id)}
+                          >
+                            <strong>{p.full_name || `${p.first_name} ${p.last_name}`}</strong>
+                            <span className="patient-id">{p.patient_id_display}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                {formData.patient && (
+                  <p className="selected-info">Selected: {getPatientName(formData.patient)}</p>
                 )}
               </div>
-              {formData.patient && (
-                <p className="selected-info">Selected: {getPatientName(formData.patient)}</p>
-              )}
             </div>
           )}
 
-          <h3 className="form-section-title">Incident Details</h3>
+          <p className="form-section-title">Incident Details</p>
           <div className="form-row">
             <div className="form-group">
               <label>Date & Time of Incident *</label>
@@ -236,7 +239,7 @@ export default function CaseForm() {
             </div>
           </div>
 
-          <h3 className="form-section-title">Animal Information</h3>
+          <p className="form-section-title">Animal Information</p>
           <div className="form-row">
             <div className="form-group">
               <label>Animal Type *</label>
@@ -292,7 +295,7 @@ export default function CaseForm() {
             </div>
           </div>
 
-          <h3 className="form-section-title">Bite Details</h3>
+          <p className="form-section-title">Bite Details</p>
           <div className="form-row">
             <div className="form-group">
               <label>Bite Category *</label>
@@ -344,12 +347,12 @@ export default function CaseForm() {
               </select>
             </div>
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Wound Description</label>
             <textarea name="wound_description" value={formData.wound_description} onChange={handleChange} rows={2} />
           </div>
 
-          <h3 className="form-section-title">Initial Management</h3>
+          <p className="form-section-title">Initial Management</p>
           <div className="form-row">
             <div className="form-group">
               <label>Initial Treatment</label>
@@ -370,7 +373,7 @@ export default function CaseForm() {
             </div>
           </div>
 
-          <div className="form-row checkboxes">
+          <div className="form-row" style={{ gap: 20 }}>
             <div className="form-group checkbox-group">
               <label><input type="checkbox" name="tetanus_status_checked" checked={formData.tetanus_status_checked} onChange={handleChange} /> Tetanus Status Checked</label>
             </div>
@@ -378,37 +381,55 @@ export default function CaseForm() {
               <label><input type="checkbox" name="tetanus_vaccine_given" checked={formData.tetanus_vaccine_given} onChange={handleChange} /> Tetanus Vaccine Given</label>
             </div>
             <div className="form-group checkbox-group">
-              <label><input type="checkbox" name="rabies_immune_globulin_given" checked={formData.rabies_immune_globulin_given} onChange={handleChange} /> Rabies Immune Globulin Given</label>
+              <label><input type="checkbox" name="rabies_immune_globulin_given" checked={formData.rabies_immune_globulin_given} onChange={handleChange} /> Rabies IG Given</label>
             </div>
             <div className="form-group checkbox-group">
               <label><input type="checkbox" name="referred_to_hospital" checked={formData.referred_to_hospital} onChange={handleChange} /> Referred to Hospital</label>
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Case Status</label>
-            <select name="case_status" value={formData.case_status} onChange={handleChange}>
-              <option value="open">Open</option>
-              <option value="ongoing">Ongoing</option>
-              <option value="completed">Completed</option>
-              <option value="lost_to_followup">Lost to Follow-up</option>
-              <option value="referred">Referred</option>
-            </select>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Case Status</label>
+              <select name="case_status" value={formData.case_status} onChange={handleChange}>
+                <option value="open">Open</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+                <option value="lost_to_followup">Lost to Follow-up</option>
+                <option value="referred">Referred</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Attending Doctor</label>
+              <input name="attending_doctor" value={formData.attending_doctor} onChange={handleChange} />
+            </div>
           </div>
 
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Notes</label>
             <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} />
           </div>
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : isEditing ? 'Update Case' : 'Record Case'}
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <span className="spinner" /> Saving...
+                </span>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  {isEditing ? 'Update Case' : 'Record Case'}
+                </>
+              )}
             </button>
-            <button type="button" className="btn-secondary" onClick={() => navigate('/cases')}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={() => navigate('/cases')}>
+              <X className="w-4 h-4" />
+              Cancel
+            </button>
           </div>
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 }

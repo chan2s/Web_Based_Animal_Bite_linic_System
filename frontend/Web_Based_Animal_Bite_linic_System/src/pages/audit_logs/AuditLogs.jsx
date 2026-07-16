@@ -1,28 +1,24 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { auditLogAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { Search, ClipboardList } from 'lucide-react';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [actionFilter, setActionFilter] = useState('');
-  const [moduleFilter, setModuleFilter] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchLogs();
-  }, [page, actionFilter, moduleFilter]);
+  }, [search]);
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      const params = { page, page_size: 30 };
-      if (actionFilter) params.action = actionFilter;
-      if (moduleFilter) params.module = moduleFilter;
+      const params = search ? { search } : {};
       const response = await auditLogAPI.list(params);
       setLogs(response.data.results || response.data || []);
-      setTotal(response.data.count || response.data.length || 0);
     } catch (error) {
       console.error('Failed to load audit logs:', error);
     } finally {
@@ -30,89 +26,89 @@ export default function AuditLogs() {
     }
   };
 
-  const getActionBadge = (action) => {
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchLogs();
+  };
+
+  const getActionIcon = (action) => {
     const map = {
-      login: 'badge-info',
-      logout: 'badge-secondary',
-      create: 'badge-success',
-      update: 'badge-warning',
-      delete: 'badge-danger',
-      view: 'badge-primary',
-      password_change: 'badge-danger',
+      login: '🔑', create: '➕', update: '✏️', delete: '🗑️',
     };
-    return map[action] || 'badge-secondary';
+    return map[action] || '📝';
   };
 
   return (
-    <div className="page-container">
+    <motion.div
+      className="page-container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="page-header">
-        <h2>Audit Logs</h2>
+        <div className="page-header-left">
+          <h1>Audit Logs</h1>
+          <p>Track system changes and user activity</p>
+        </div>
         <div className="header-actions">
-          <select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="filter-select">
-            <option value="">All Actions</option>
-            <option value="login">Login</option>
-            <option value="logout">Logout</option>
-            <option value="create">Create</option>
-            <option value="update">Update</option>
-            <option value="delete">Delete</option>
-          </select>
-          <select value={moduleFilter} onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }} className="filter-select">
-            <option value="">All Modules</option>
-            <option value="api/auth">Authentication</option>
-            <option value="api/patients">Patients</option>
-            <option value="api/cases">Cases</option>
-            <option value="api/vaccinations">Vaccinations</option>
-            <option value="api/inventory">Inventory</option>
-            <option value="api/users">Users</option>
-          </select>
-          <button className="btn-secondary" onClick={() => fetchLogs()}>🔄 Refresh</button>
+          <form onSubmit={handleSearch} className="search-form">
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="search-input"
+            />
+            <button type="submit" className="btn-search">
+              <Search className="w-4 h-4" />
+            </button>
+          </form>
         </div>
       </div>
 
       {loading ? (
         <Loader text="Loading audit logs..." />
       ) : logs.length === 0 ? (
-        <div className="empty-state"><p>No audit logs found.</p></div>
+        <div className="empty-state">
+          <div className="empty-icon"><ClipboardList className="w-12 h-12 text-slate-300 mx-auto" /></div>
+          <h3>No Audit Logs Found</h3>
+          <p>No activity records match your search.</p>
+        </div>
       ) : (
-        <>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>User</th>
-                  <th>Role</th>
-                  <th>Action</th>
-                  <th>Module</th>
-                  <th>Description</th>
-                  <th>IP Address</th>
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Description</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log, i) => (
+                <tr
+                  key={log.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${i * 0.02}s` }}
+                >
+                  <td className="text-slate-500 text-xs">{new Date(log.timestamp).toLocaleString()}</td>
+                  <td className="font-medium">{log.user || 'System'}</td>
+                  <td>
+                    <span className="flex items-center gap-1.5">
+                      <span>{getActionIcon(log.action)}</span>
+                      <span className="capitalize">{log.action}</span>
+                    </span>
+                  </td>
+                  <td className="text-slate-600">{log.description}</td>
+                  <td className="text-slate-400 text-xs font-mono">{log.ip_address || '—'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="text-mono">{new Date(log.created_at).toLocaleString()}</td>
-                    <td><strong>{log.username}</strong></td>
-                    <td><span className={`badge badge-role-${log.user_role}`}>{log.user_role}</span></td>
-                    <td><span className={`badge ${getActionBadge(log.action)}`}>{log.action}</span></td>
-                    <td>{log.module}</td>
-                    <td className="text-muted">{log.description || '—'}</td>
-                    <td className="text-mono">{log.ip_address || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {total > 30 && (
-            <div className="pagination">
-              <button disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
-              <span>Page {page} of {Math.ceil(total / 30)}</span>
-              <button disabled={page >= Math.ceil(total / 30)} onClick={() => setPage(page + 1)}>Next</button>
-            </div>
-          )}
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </motion.div>
   );
 }

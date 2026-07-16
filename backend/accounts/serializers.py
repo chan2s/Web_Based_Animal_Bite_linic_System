@@ -130,10 +130,12 @@ class PatientProfileUpdateSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, max_length=100)
     
     # Profile fields
-    contact_number = serializers.CharField(required=False, max_length=20, allow_blank=True, source='phone')
+    # NOTE: No `source` param here — DRF stores validated_data under field names.
+    # The update() method manually maps these to correct model fields.
+    contact_number = serializers.CharField(required=False, max_length=20, allow_blank=True)
     address = serializers.CharField(required=False, allow_blank=True)
-    sex = serializers.ChoiceField(required=False, choices=['male', 'female', 'other', ''], allow_blank=True, source='gender')
-    date_of_birth = serializers.DateField(required=False, allow_null=True, source='birth_date')
+    sex = serializers.ChoiceField(required=False, choices=['male', 'female', 'other', ''], allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
     emergency_contact_name = serializers.CharField(required=False, max_length=200, allow_blank=True)
     emergency_contact_phone = serializers.CharField(required=False, max_length=20, allow_blank=True)
     emergency_contact_relation = serializers.CharField(required=False, max_length=100, allow_blank=True)

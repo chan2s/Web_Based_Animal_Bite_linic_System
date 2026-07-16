@@ -1,51 +1,45 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { appointmentAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { Calendar, ExternalLink } from 'lucide-react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.04 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+};
 
 export default function MyAppointments() {
-  const [view, setView] = useState('upcoming');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [cancelLoading, setCancelLoading] = useState(null);
-  const [error, setError] = useState('');
-  const [showCancelModal, setShowCancelModal] = useState(null);
-  const [cancelReason, setCancelReason] = useState('');
+  const [activeTab, setActiveTab] = useState(tabParam === 'history' ? 'history' : 'upcoming');
 
   useEffect(() => {
     fetchAppointments();
-  }, [view]);
+  }, [activeTab]);
 
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      let res;
-      if (view === 'upcoming') {
-        res = await appointmentAPI.myUpcoming();
-      } else {
-        res = await appointmentAPI.myHistory();
-      }
-      setAppointments(res.data || []);
-    } catch (err) {
-      console.error('Failed to load appointments:', err);
-      setError('Failed to load appointments.');
+      const apiMethod = activeTab === 'upcoming' ? appointmentAPI.myUpcoming : appointmentAPI.myHistory;
+      const response = await apiMethod();
+      setAppointments(response.data || []);
+    } catch (error) {
+      console.error('Failed to load appointments:', error);
+      setAppointments([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCancel = async (id) => {
-    setCancelLoading(id);
-    setError('');
-    try {
-      await appointmentAPI.cancel(id, cancelReason);
-      setShowCancelModal(null);
-      setCancelReason('');
-      fetchAppointments();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to cancel appointment.');
-    } finally {
-      setCancelLoading(null);
     }
   };
 
@@ -56,41 +50,56 @@ export default function MyAppointments() {
       completed: 'badge-primary',
       cancelled: 'badge-danger',
       rejected: 'badge-danger',
-      rescheduled: 'badge-info',
     };
     return map[status] || 'badge-secondary';
   };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-    });
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="view-tabs">
-          <button className={`tab ${view === 'upcoming' ? 'active' : ''}`} onClick={() => setView('upcoming')}>Upcoming</button>
-          <button className={`tab ${view === 'history' ? 'active' : ''}`} onClick={() => setView('history')}>History</button>
+    <motion.div
+      className="page-container"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className="page-header" variants={itemVariants}>
+        <div className="page-header-left">
+          <h1>My Appointments</h1>
+          <p>View and manage your appointments</p>
         </div>
-        <Link to="/appointments/book" className="btn-primary">+ Book Appointment</Link>
-      </div>
+      </motion.div>
 
-      {error && <div className="error-message">⚠️ {error}</div>}
+      <div className="tabs">
+        <button className={`tab ${activeTab === 'upcoming' ? 'active' : ''}`} onClick={() => setActiveTab('upcoming')}>
+          Upcoming
+        </button>
+        <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
+          History
+        </button>
+      </div>
 
       {loading ? (
         <Loader text="Loading appointments..." />
       ) : appointments.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📅</div>
-          <h3>{view === 'upcoming' ? 'No Upcoming Appointments' : 'No Appointment History'}</h3>
-          <p>{view === 'upcoming' ? 'Book your first vaccination appointment.' : 'Your appointment history will appear here.'}</p>
-          {view === 'upcoming' && <Link to="/appointments/book" className="btn-primary">Book Now</Link>}
-        </div>
+        <motion.div className="empty-state" variants={itemVariants}>
+          <div className="empty-icon">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto" />
+          </div>
+          <h3>{activeTab === 'upcoming' ? 'No Upcoming Appointments' : 'No Appointment History'}</h3>
+          <p>{activeTab === 'upcoming' ? 'Book your first appointment today.' : 'You have no past appointments.'}</p>
+          {activeTab === 'upcoming' && (
+            <Link to="/appointments/book" className="btn-primary">
+              <Calendar className="w-4 h-4" />
+              Book Now
+            </Link>
+          )}
+        </motion.div>
       ) : (
-        <div className="table-container">
+        <motion.div className="table-container" variants={itemVariants}>
           <table className="table">
             <thead>
               <tr>
@@ -98,66 +107,32 @@ export default function MyAppointments() {
                 <th>Date</th>
                 <th>Time</th>
                 <th>Reason</th>
-                <th>Patient</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {appointments.map((apt) => (
-                <tr key={apt.id}>
-                  <td><strong>{apt.appointment_number}</strong></td>
+              {appointments.map((apt, i) => (
+                <tr
+                  key={apt.id}
+                  className="animate-fade-in"                  style={{ animationDelay: `${i * 0.03}s` }}
+                >
+                <td className="font-mono font-medium">{apt.appointment_number}</td>
                   <td>{formatDate(apt.appointment_date)}</td>
-                  <td><strong>{apt.time_slot}</strong></td>
-                  <td>{apt.reason?.replace(/_/g, ' ')}</td>
-                  <td>{apt.patient_name}</td>
+                  <td>{apt.time_slot}</td>
+                  <td className="capitalize">{apt.reason || 'Vaccination'}</td>
                   <td><span className={`badge ${getStatusBadge(apt.status)}`}>{apt.status}</span></td>
-                  <td className="actions-cell">
-                    {view === 'upcoming' && (apt.status === 'pending' || apt.status === 'approved') && (
-                      <button className="btn-sm" style={{ color: '#dc2626' }} onClick={() => setShowCancelModal(apt)} title="Cancel">
-                        🗑️ Cancel
-                      </button>
-                    )}
+                  <td>
+                    <button className="btn-sm">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </motion.div>
       )}
-
-      {/* Cancel Modal */}
-      {showCancelModal && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div className="modal-header">
-              <h3>Cancel Appointment</h3>
-              <button className="modal-close" onClick={() => setShowCancelModal(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: 12 }}>
-                Cancel appointment <strong>{showCancelModal.appointment_number}</strong> on{' '}
-                {formatDate(showCancelModal.appointment_date)} at {showCancelModal.time_slot}?
-              </p>
-              <div className="form-group">
-                <label>Reason (optional)</label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  rows={3}
-                  placeholder="Tell us why you're cancelling..."
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-primary" style={{ background: '#dc2626' }} onClick={() => handleCancel(showCancelModal.id)} disabled={cancelLoading === showCancelModal.id}>
-                {cancelLoading === showCancelModal.id ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
-              <button className="btn-secondary" onClick={() => setShowCancelModal(null)}>Keep Appointment</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 }

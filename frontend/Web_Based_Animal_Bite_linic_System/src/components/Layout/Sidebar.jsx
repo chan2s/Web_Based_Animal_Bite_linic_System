@@ -1,64 +1,91 @@
 import { NavLink } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { chatAPI } from '../../api/axios';
+import { Cross, LayoutDashboard, Users, Stethoscope, Syringe, Package, FileBarChart, UserCog, ClipboardList, MessageSquare, Calendar, User, LogOut, Menu, ChevronLeft } from 'lucide-react';
 
 const menuItems = [
-  // ── Patient Menu (visible only to patients) ──
+  // ── Patient Menu ──
   {
     section: 'Patient Portal',
     roles: ['patient'],
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: '🏠', roles: ['patient'] },
-      { path: '/appointments/book', label: 'Book Appointment', icon: '📅', roles: ['patient'] },
-      { path: '/appointments/my', label: 'My Appointments', icon: '📋', roles: ['patient'] },
-      { path: '/profile', label: 'My Profile', icon: '👤', roles: ['patient'] },
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['patient'] },
+      { path: '/appointments/book', label: 'Book Appointment', icon: Calendar, roles: ['patient'] },
+      { path: '/appointments/my', label: 'My Appointments', icon: ClipboardList, roles: ['patient'] },
+      { path: '/profile', label: 'My Profile', icon: User, roles: ['patient'] },
     ],
   },
-  // ── Staff Menu (visible to admin, doctor, nurse, staff) ──
+  // ── Staff Menu ──
   {
     section: 'Main',
     roles: ['admin', 'doctor', 'nurse', 'staff'],
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: '📊', roles: ['admin', 'doctor', 'nurse', 'staff'] },
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'doctor', 'nurse', 'staff'] },
     ],
   },
   {
     section: 'Management',
     roles: ['admin', 'doctor', 'nurse', 'staff'],
     items: [
-      { path: '/patients', label: 'Patients', icon: '👥', roles: ['admin', 'doctor', 'nurse', 'staff'] },
-      { path: '/cases', label: 'Bite Cases', icon: '🩺', roles: ['admin', 'doctor', 'nurse'] },
-      { path: '/appointments/book', label: 'Book Appointment', icon: '📅', roles: ['admin', 'doctor', 'nurse', 'staff'] },
-      { path: '/appointments/my', label: 'My Appointments', icon: '📋', roles: ['admin', 'doctor', 'nurse', 'staff'] },
-      { path: '/appointments/manage', label: 'Manage Appts', icon: '⚙️', roles: ['admin', 'doctor', 'nurse'] },
+      { path: '/patients', label: 'Patients', icon: Users, roles: ['admin', 'doctor', 'nurse', 'staff'] },
+      { path: '/cases', label: 'Bite Cases', icon: Stethoscope, roles: ['admin', 'doctor', 'nurse'] },
+      { path: '/appointments/book', label: 'Book Appointment', icon: Calendar, roles: ['admin', 'doctor', 'nurse', 'staff'] },
+      { path: '/appointments/my', label: 'My Appointments', icon: ClipboardList, roles: ['admin', 'doctor', 'nurse', 'staff'] },
+      { path: '/appointments/manage', label: 'Manage Appts', icon: Calendar, roles: ['admin', 'doctor', 'nurse'] },
     ],
   },
   {
     section: 'Vaccination',
     roles: ['admin', 'doctor', 'nurse', 'staff'],
     items: [
-      { path: '/vaccinations', label: 'Vaccinations', icon: '💉', roles: ['admin', 'doctor', 'nurse'] },
-      { path: '/inventory', label: 'Vaccine Inventory', icon: '📦', roles: ['admin', 'nurse', 'staff'] },
+      { path: '/vaccinations', label: 'Vaccinations', icon: Syringe, roles: ['admin', 'doctor', 'nurse'] },
+      { path: '/inventory', label: 'Vaccine Inventory', icon: Package, roles: ['admin', 'nurse', 'staff'] },
     ],
   },
   {
     section: 'Reports',
     roles: ['admin', 'doctor', 'staff'],
     items: [
-      { path: '/reports', label: 'Reports', icon: '📈', roles: ['admin', 'doctor'] },
+      { path: '/reports', label: 'Reports', icon: FileBarChart, roles: ['admin', 'doctor'] },
+    ],
+  },
+  {
+    section: 'Communication',
+    roles: ['admin', 'doctor', 'nurse', 'staff', 'patient'],
+    items: [
+      { path: '/chat', label: 'Messages', icon: MessageSquare, roles: ['admin', 'doctor', 'nurse', 'staff', 'patient'], badge: 'unread' },
     ],
   },
   {
     section: 'Administration',
     roles: ['admin'],
     items: [
-      { path: '/users', label: 'User Management', icon: '🔐', roles: ['admin'] },
-      { path: '/audit-logs', label: 'Audit Logs', icon: '📋', roles: ['admin'] },
+      { path: '/users', label: 'User Management', icon: UserCog, roles: ['admin'] },
+      { path: '/audit-logs', label: 'Audit Logs', icon: ClipboardList, roles: ['admin'] },
     ],
   },
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
-  const { hasRole, user } = useAuth();
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
+  const { hasRole, user, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await chatAPI.getUnreadCount();
+      setUnreadCount(res.data?.unread_count || 0);
+    } catch (e) {
+      // Ignore errors
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
 
   const filteredMenu = menuItems
     .map((section) => ({
@@ -67,14 +94,27 @@ export default function Sidebar({ collapsed, onToggle }) {
     }))
     .filter((section) => section.items.length > 0);
 
-  return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+  const sidebarContent = (
+    <>
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          {collapsed ? '🏥' : <><span className="logo-icon">🏥</span><span className="logo-text">Animal Bite<br/>Clinic System</span></>}
+          <div className="logo-icon">
+            <Cross className="w-4 h-4" />
+          </div>
+          {!collapsed && (
+            <motion.span
+              className="logo-text"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              Animal Bite<br/>Clinic System
+            </motion.span>
+          )}
         </div>
-        <button className="sidebar-toggle" onClick={onToggle}>
-          {collapsed ? '→' : '←'}
+        <button className="sidebar-toggle" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {collapsed ? <ChevronLeft className="w-3 h-3 rotate-180" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </div>
 
@@ -83,45 +123,102 @@ export default function Sidebar({ collapsed, onToggle }) {
           <div key={section.section} className="nav-section">
             {!collapsed && <span className="nav-section-title">{section.section}</span>}
             <ul>
-              {section.items.map((item) => (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                  >
-                    <span className="nav-icon">{item.icon}</span>
-                    {!collapsed && <span className="nav-label">{item.label}</span>}
-                  </NavLink>
-                </li>
-              ))}
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      end={item.path === '/dashboard'}
+                      className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                      onClick={onMobileClose}
+                    >
+                      <span className="nav-icon">
+                        <Icon className="w-[18px] h-[18px]" />
+                      </span>
+                      {!collapsed && (
+                        <>
+                          <span className="nav-label">{item.label}</span>
+                          {item.badge === 'unread' && unreadCount > 0 && (
+                            <motion.span
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="ml-auto bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1 leading-none"
+                            >
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </motion.span>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
       </nav>
 
-      {/* Visit Website Link */}
       <NavLink
         to="/"
         className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderTop: '1px solid var(--border)', margin: '0 10px', borderRadius: 0 }}
+        onClick={onMobileClose}
       >
-        <span className="nav-icon">🌐</span>
+        <span className="nav-icon">
+          <FileBarChart className="w-[18px] h-[18px]" />
+        </span>
         {!collapsed && <span className="nav-label">Visit Website</span>}
       </NavLink>
 
       <div className="sidebar-footer">
         {!collapsed && user && (
-          <div className="sidebar-user">
+          <motion.div
+            className="sidebar-user"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+          >
             <div className="sidebar-user-avatar">
-              {user.first_name?.[0] || user.username[0]?.toUpperCase() || 'U'}
+              {user.first_name?.[0] || user.username?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user.first_name || user.username}</span>
+              <span className="sidebar-user-name">
+                {user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.username}
+              </span>
               <span className="sidebar-user-role">{user.profile?.role || 'User'}</span>
+            </div>
+            <button
+              onClick={logout}
+              className="ml-auto p-1.5 rounded-md text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all"
+              title="Logout"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+        {collapsed && user && (
+          <div className="flex justify-center">
+            <div className="sidebar-user-avatar" style={{ width: 32, height: 32, fontSize: 11 }}>
+              {user.first_name?.[0] || user.username?.[0]?.toUpperCase() || 'U'}
             </div>
           </div>
         )}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="sidebar-overlay" onClick={onMobileClose} />
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

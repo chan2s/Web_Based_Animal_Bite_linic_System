@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { patientAPI, caseAPI, vaccinationAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
+import { ExternalLink, Edit3, Plus, Syringe, Stethoscope, User } from 'lucide-react';
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -45,8 +47,19 @@ export default function PatientDetail() {
   );
 
   return (
-    <div className="detail-page">
-      <div className="detail-header">
+    <motion.div
+      className="detail-page"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Header */}
+      <motion.div
+        className="detail-header"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <div className="detail-title">
           <div className="patient-avatar-lg">
             {patient.first_name?.[0]}{patient.last_name?.[0]}
@@ -57,19 +70,45 @@ export default function PatientDetail() {
           </div>
         </div>
         <div className="detail-actions">
-          <Link to={`/cases/new?patient=${patient.id}`} className="btn-primary">+ New Case</Link>
-          <Link to={`/vaccinations/new?patient=${patient.id}`} className="btn-secondary">+ Record Vaccination</Link>
+          <Link to={`/cases/new?patient=${patient.id}`} className="btn-primary">
+            <Stethoscope className="w-4 h-4" />
+            New Case
+          </Link>
+          <Link to={`/vaccinations/new?patient=${patient.id}`} className="btn-secondary">
+            <Syringe className="w-4 h-4" />
+            Record Vaccination
+          </Link>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="tabs">
-        <button className={`tab ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Patient Info</button>
-        <button className={`tab ${activeTab === 'cases' ? 'active' : ''}`} onClick={() => setActiveTab('cases')}>Bite Cases ({cases.length})</button>
-        <button className={`tab ${activeTab === 'vaccinations' ? 'active' : ''}`} onClick={() => setActiveTab('vaccinations')}>Vaccinations ({vaccinations.length})</button>
-      </div>
+      {/* Tabs */}
+      <motion.div
+        className="tabs"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+        <button className={`tab ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
+          <User className="w-3.5 h-3.5 inline mr-1.5" />
+          Patient Info
+        </button>
+        <button className={`tab ${activeTab === 'cases' ? 'active' : ''}`} onClick={() => setActiveTab('cases')}>
+          <Stethoscope className="w-3.5 h-3.5 inline mr-1.5" />
+          Bite Cases ({cases.length})
+        </button>
+        <button className={`tab ${activeTab === 'vaccinations' ? 'active' : ''}`} onClick={() => setActiveTab('vaccinations')}>
+          <Syringe className="w-3.5 h-3.5 inline mr-1.5" />
+          Vaccinations ({vaccinations.length})
+        </button>
+      </motion.div>
 
       {activeTab === 'info' && (
-        <div className="card">
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+        >
           <div className="card-body">
             <h3>Personal Information</h3>
             <div className="info-grid">
@@ -80,7 +119,7 @@ export default function PatientDetail() {
               <InfoRow label="Age" value={patient.age} />
               <InfoRow label="Phone" value={patient.phone} />
               <InfoRow label="Email" value={patient.email} />
-              <InfoRow label="Address" value={`${patient.address}, ${patient.barangay || ''}, ${patient.municipality || ''}, ${patient.province || ''}`.replace(/, ,/g, ',')} />
+              <InfoRow label="Address" value={`${patient.address}, ${patient.barangay || ''}, ${patient.municipality || ''}, ${patient.province || ''}`.replace(/, ,/g, ',').replace(/, ,/g, ',').replace(/^, /, '')} />
             </div>
 
             <h3>Emergency Contact</h3>
@@ -99,89 +138,112 @@ export default function PatientDetail() {
             </div>
 
             <div className="form-actions">
-              <Link to={`/patients/${id}/edit`} className="btn-secondary">✏️ Edit Patient</Link>
+              <Link to={`/patients/${id}/edit`} className="btn-secondary">
+                <Edit3 className="w-4 h-4" />
+                Edit Patient
+              </Link>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {activeTab === 'cases' && (
-        <div className="card">
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="card-body">
             {cases.length === 0 ? (
               <div className="empty-state">
-                <p>No bite cases recorded for this patient.</p>
-                <Link to={`/cases/new?patient=${patient.id}`} className="btn-primary">Record First Case</Link>
+                <p className="text-slate-500 mb-4">No bite cases recorded for this patient.</p>
+                <Link to={`/cases/new?patient=${patient.id}`} className="btn-primary">
+                  <Plus className="w-4 h-4" />
+                  Record First Case
+                </Link>
               </div>
             ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Case #</th>
-                    <th>Date</th>
-                    <th>Animal</th>
-                    <th>Category</th>
-                    <th>Severity</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cases.map((c) => (
-                    <tr key={c.id}>
-                      <td>{c.case_number}</td>
-                      <td>{new Date(c.incident_date).toLocaleDateString()}</td>
-                      <td>{c.animal_type}</td>
-                      <td><span className={`badge badge-cat-${c.bite_category?.toLowerCase()}`}>Cat {c.bite_category}</span></td>
-                      <td>{c.severity}</td>
-                      <td><span className={`badge badge-${c.case_status}`}>{c.case_status}</span></td>
-                      <td><Link to={`/cases/${c.id}`} className="btn-sm">View</Link></td>
+              <div className="table-container" style={{ border: 'none', borderRadius: 0, boxShadow: 'none' }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Case #</th>
+                      <th>Date</th>
+                      <th>Animal</th>
+                      <th>Category</th>
+                      <th>Severity</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {cases.map((c) => (
+                      <tr key={c.id}>
+                        <td className="font-mono font-medium">{c.case_number}</td>
+                        <td>{new Date(c.incident_date).toLocaleDateString()}</td>
+                        <td className="capitalize">{c.animal_type}</td>
+                        <td><span className={`badge badge-cat-${c.bite_category?.toLowerCase()}`}>Cat {c.bite_category}</span></td>
+                        <td><span className="badge badge-secondary capitalize">{c.severity}</span></td>
+                        <td><span className={`badge badge-${c.case_status === 'open' || c.case_status === 'ongoing' ? 'warning' : c.case_status === 'completed' ? 'success' : 'danger'}`}>{c.case_status?.replace(/_/g, ' ')}</span></td>
+                        <td><Link to={`/cases/${c.id}`} className="btn-sm"><ExternalLink className="w-3 h-3" /></Link></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {activeTab === 'vaccinations' && (
-        <div className="card">
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="card-body">
             {vaccinations.length === 0 ? (
               <div className="empty-state">
-                <p>No vaccination records for this patient.</p>
-                <Link to={`/vaccinations/new?patient=${patient.id}`} className="btn-primary">Record Vaccination</Link>
+                <p className="text-slate-500 mb-4">No vaccination records for this patient.</p>
+                <Link to={`/vaccinations/new?patient=${patient.id}`} className="btn-primary">
+                  <Plus className="w-4 h-4" />
+                  Record Vaccination
+                </Link>
               </div>
             ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Dose</th>
-                    <th>Scheduled</th>
-                    <th>Administered</th>
-                    <th>Result</th>
-                    <th>Batch</th>
-                    <th>Administered By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vaccinations.map((v) => (
-                    <tr key={v.id}>
-                      <td>Dose {v.dose_number} ({v.dose_type})</td>
-                      <td>{new Date(v.scheduled_date).toLocaleDateString()}</td>
-                      <td>{v.administered_date ? new Date(v.administered_date).toLocaleDateString() : '—'}</td>
-                      <td><span className={`badge badge-${v.result}`}>{v.result}</span></td>
-                      <td>{v.batch_number || '—'}</td>
-                      <td>{v.administered_by_name || '—'}</td>
+              <div className="table-container" style={{ border: 'none', borderRadius: 0, boxShadow: 'none' }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Dose</th>
+                      <th>Scheduled</th>
+                      <th>Administered</th>
+                      <th>Result</th>
+                      <th>Batch</th>
+                      <th>Administered By</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {vaccinations.map((v) => (
+                      <tr key={v.id}>
+                        <td className="font-medium">Dose {v.dose_number} ({v.dose_type})</td>
+                        <td>{new Date(v.scheduled_date).toLocaleDateString()}</td>
+                        <td>{v.administered_date ? new Date(v.administered_date).toLocaleDateString() : <span className="text-slate-400">—</span>}</td>
+                        <td><span className={`badge badge-${v.result === 'completed' ? 'success' : v.result === 'missed' ? 'danger' : 'warning'}`}>{v.result}</span></td>
+                        <td className="text-slate-500">{v.batch_number || '—'}</td>
+                        <td>{v.administered_by_name || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

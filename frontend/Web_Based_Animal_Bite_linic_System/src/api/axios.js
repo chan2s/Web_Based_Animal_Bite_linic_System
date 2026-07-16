@@ -153,4 +153,26 @@ export const auditLogAPI = {
   list: (params) => api.get('/audit-logs/', { params }),
 };
 
+// Helper: DRF paginated list responses return { count, next, previous, results }
+// This extracts the array from either paginated or plain-array responses.
+export const extractPaginatedData = (data) => {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.results)) return data.results;
+  return [];
+};
+
+// Chat APIs
+export const chatAPI = {
+  getConversations: (params) => api.get('/chat/conversations/', { params }),
+  getConversation: (id) => api.get(`/chat/conversations/${id}/`),
+  createConversation: (data) => api.post('/chat/conversations/', data),
+  updateConversation: (id, data) => api.patch(`/chat/conversations/${id}/`, data),
+  deleteConversation: (id) => api.delete(`/chat/conversations/${id}/`),
+  getMessages: (conversationId) => api.get(`/chat/conversations/${conversationId}/messages/`),
+  createMessage: (conversationId, data) => api.post(`/chat/conversations/${conversationId}/messages/`, data),
+  getUnreadCount: () => api.get('/chat/unread-count/'),
+  getStaffPatients: () => api.get('/chat/staff-patients/'),
+  getAvailableStaff: () => api.get('/chat/available-staff/'),
+};
+
 export default api;

@@ -4,18 +4,24 @@ Django settings for Web_Based_Animal_Bite_linic_System project.
 
 from pathlib import Path
 import os
+from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-fi3xs7hp0!&_c8ii(3g81#0%irng&5b43l!l3vka&dlyv)t7h1'
+# ============================================
+# SECURITY: Load from .env — never commit secrets
+# ============================================
 
-DEBUG = False
+SECRET_KEY = config('SECRET_KEY')
 
-ALLOWED_HOSTS = ['*']
+DEBUG = config('DEBUG', default=False, cast=bool)
+
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # MUST be first for ASGI WebSocket support
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -27,6 +33,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'django_filters',
+    'channels',
     # Local apps
     'accounts',
     'patients',
@@ -37,6 +44,8 @@ INSTALLED_APPS = [
     'audit_logs',
     'dashboard',
     'appointments',
+    'chat',
+    'chatbot',
 ]
 
 MIDDLEWARE = [
@@ -71,10 +80,24 @@ TEMPLATES = [
 WSGI_APPLICATION = 'Web_Based_Animal_Bite_linic_System.wsgi.application'
 
 # Database
+# ---------------------------------------------------------------------------
+# Default: SQLite (zero config for development).
+# To switch to PostgreSQL, set the DB_* env vars and change DB_ENGINE to
+#   django.db.backends.postgresql
+# ---------------------------------------------------------------------------
+_db_name = config('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3'))
+# Safety net: if DB_NAME is set to empty in .env, fall back to default SQLite path
+if not _db_name:
+    _db_name = os.path.join(BASE_DIR, 'db.sqlite3')
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'NAME': _db_name,
+        'USER': config('DB_USER', default=''),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default=''),
+        'PORT': config('DB_PORT', default=''),
     }
 }
 
@@ -103,6 +126,16 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ASGI / Channels Configuration
+# ---------------------------------------------------------------------------
+ASGI_APPLICATION = 'Web_Based_Animal_Bite_linic_System.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
@@ -129,13 +162,28 @@ REST_FRAMEWORK = {
     ],
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
     'DATE_FORMAT': '%Y-%m-%d',
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+    },
 }
 
-# Email Configuration (SMTP for Gmail)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'crissguillen200410@gmail.com'
-EMAIL_HOST_PASSWORD = 'yori jzul jsmw ueif'
-DEFAULT_FROM_EMAIL = 'TEST <crissguillen200410@gmail.com>'
+# Email Configuration
+# ---------------------------------------------------------------------------
+# For development you can use the console backend (emails are printed to the
+# terminal). Set EMAIL_BACKEND in .env to 'django.core.mail.backends.smtp.EmailBackend'
+# and provide the host/port/credentials when you have SMTP credentials.
+# ---------------------------------------------------------------------------
+EMAIL_BACKEND = config(
+    'EMAIL_BACKEND',
+    default='django.core.mail.backends.console.EmailBackend',
+)
+EMAIL_HOST = config('EMAIL_HOST', default='')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config(
+    'DEFAULT_FROM_EMAIL',
+    default='Animal Bite Clinic <noreply@animalbiteclinic.com>',
+)
