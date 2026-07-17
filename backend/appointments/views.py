@@ -98,7 +98,7 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         # Staff can see all appointments; users see only their own
-        if hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'nurse']:
+        if hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'veterinarian', 'nurse']:
             return Appointment.objects.select_related('booked_by').all()
         return Appointment.objects.filter(booked_by=user).select_related('booked_by')
     
@@ -115,20 +115,20 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_serializer_class(self):
         user = self.request.user
-        is_staff = hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'nurse']
+        is_staff = hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'veterinarian', 'nurse']
         if self.request.method in ['PUT', 'PATCH'] and is_staff:
             return AppointmentStaffUpdateSerializer
         return AppointmentSerializer
     
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'nurse']:
+        if hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'veterinarian', 'nurse']:
             return Appointment.objects.select_related('booked_by').all()
         return Appointment.objects.filter(booked_by=user).select_related('booked_by')
     
     def perform_update(self, serializer):
         user = self.request.user
-        is_staff = hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'nurse']
+        is_staff = hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'veterinarian', 'nurse']
         
         # If user cancels their own appointment
         if not is_staff and serializer.validated_data.get('status') == 'cancelled':
@@ -221,7 +221,7 @@ def cancel_appointment_view(request, pk):
         return Response({'error': 'Appointment not found.'}, status=status.HTTP_404_NOT_FOUND)
     
     user = request.user
-    is_staff = hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'nurse']
+    is_staff = hasattr(user, 'profile') and user.profile.role in ['admin', 'doctor', 'veterinarian', 'nurse']
     
     # Check permissions
     if appointment.booked_by != user and not is_staff:

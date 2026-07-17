@@ -71,10 +71,10 @@ class IsAdminOrDoctor(permissions.BasePermission):
 
 
 class IsAdminOrDoctorOrNurse(permissions.BasePermission):
-    """Allows access to admin, doctor, or nurse users."""
+    """Allows access to admin, doctor, veterinarian, or nurse users."""
     
     def has_permission(self, request, view):
-        return _get_role(request) in ['admin', 'doctor', 'nurse']
+        return _get_role(request) in ['admin', 'doctor', 'veterinarian', 'nurse']
 
 
 class IsStaffUser(permissions.BasePermission):

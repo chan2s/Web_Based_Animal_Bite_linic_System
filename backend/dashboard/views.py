@@ -105,7 +105,7 @@ def _role_dashboard_data(request, role):
         total_cases = AnimalBiteCase.objects.filter(is_active=True).count()
         active_cases = AnimalBiteCase.objects.filter(case_status__in=['open', 'ongoing']).count()
         completed = AnimalBiteCase.objects.filter(case_status='completed').count()
-        todays_consultations = Appointment.objects.filter(appointment_date=today, reason='new_bite').count()
+        todays_consultations = Appointment.objects.filter(appointment_date=today).count()
         vax_completed = VaccinationRecord.objects.filter(administered_date=today, result='administered').count()
 
         data.update({
