@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import ConnectionIndicator from '../network/ConnectionIndicator';
 import { Bell, User, Settings, LogOut, Menu } from 'lucide-react';
 
 export default function Header({ title, subtitle, onMenuToggle }) {
@@ -49,6 +50,9 @@ export default function Header({ title, subtitle, onMenuToggle }) {
       </div>
 
       <div className="header-right">
+        {/* Connection indicator */}
+        <ConnectionIndicator />
+
         {/* Search - hidden on mobile */}
         <div className="header-search hidden md:block">
           <span className="header-search-icon">🔍</span>

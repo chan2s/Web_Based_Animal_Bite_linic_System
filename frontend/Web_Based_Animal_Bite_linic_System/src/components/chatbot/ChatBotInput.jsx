@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback, forwardRef } from 'react';
-import { SendHorizonal } from 'lucide-react';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { SendHorizonal, WifiOff } from 'lucide-react';
 
 const ChatBotInput = forwardRef(function ChatBotInput({ onSend, disabled }, ref) {
+  const { isOnline } = useNetworkStatus();
   const [body, setBody] = useState('');
   const innerRef = useRef(null);
   const inputRef = ref || innerRef;
@@ -45,8 +47,8 @@ const ChatBotInput = forwardRef(function ChatBotInput({ onSend, disabled }, ref)
             value={body}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
-            disabled={disabled}
+            placeholder={isOnline ? 'Ask me anything...' : 'You are offline'}
+            disabled={disabled || !isOnline}
             rows={1}
             className="
               w-full resize-none
@@ -72,7 +74,7 @@ const ChatBotInput = forwardRef(function ChatBotInput({ onSend, disabled }, ref)
         {/* Send Button */}
         <button
           onClick={handleSend}
-          disabled={isEmpty || disabled}
+          disabled={isEmpty || disabled || !isOnline}
           className="
             flex-shrink-0
             flex items-center justify-center
@@ -88,8 +90,9 @@ const ChatBotInput = forwardRef(function ChatBotInput({ onSend, disabled }, ref)
             focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1
           "
           aria-label="Send message"
+          title={!isOnline ? 'Offline — cannot send messages' : 'Send message'}
         >
-          <SendHorizonal className="w-[18px] h-[18px]" />
+          {!isOnline ? <WifiOff className="w-[18px] h-[18px]" /> : <SendHorizonal className="w-[18px] h-[18px]" />}
         </button>
       </div>
     </div>

@@ -3,15 +3,17 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { chatAPI } from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import useChatWebSocket from '../../hooks/useChatWebSocket';
 import { showError } from '../../hooks/useToast';
 import ChatSidebar from '../../components/chat/ChatSidebar';
 import ChatInput from '../../components/chat/ChatInput';
 import MessageBubble from '../../components/chat/MessageBubble';
-import { MessageSquare, ChevronLeft } from 'lucide-react';
+import { MessageSquare, ChevronLeft, WifiOff } from 'lucide-react';
 
 export default function ChatPage() {
   const { user } = useAuth();
+  const { isOnline } = useNetworkStatus();
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -46,6 +48,16 @@ export default function ChatPage() {
   useEffect(() => {
     refreshConversations();
   }, []);
+
+  // ── Auto-refresh when connection is restored ──
+  useEffect(() => {
+    if (isOnline) {
+      refreshConversations();
+      if (activeConversation) {
+        fetchMessages(activeConversation.id);
+      }
+    }
+  }, [isOnline]);
 
   // ── Load messages when active conversation changes ──
   useEffect(() => {
@@ -98,6 +110,13 @@ export default function ChatPage() {
 
   const handleSend = async (content, attachment) => {
     if (!activeConversation || (!content.trim() && !attachment)) return;
+    
+    // Don't attempt to send when offline
+    if (!isOnline) {
+      showError('You are offline. Messages cannot be sent.');
+      return false;
+    }
+
     setSending(true);
     try {
       // Send via WebSocket — the server broadcasts a 'new_message' event back
@@ -116,7 +135,11 @@ export default function ChatPage() {
         refreshConversations();
       }
     } catch (e) {
-      showError('Failed to send message');
+      if (e?.offline) {
+        showError('No internet connection. Please reconnect and try again.');
+      } else {
+        showError('Failed to send message');
+      }
     } finally {
       setSending(false);
     }
@@ -201,7 +224,10 @@ export default function ChatPage() {
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
                   {participant.full_name?.[0]?.toUpperCase() || '?'}
                 </div>
-                {activeConversation.is_online && (
+                {activeConversation.is_online && !isOnline && (
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-400 border-[2.5px] border-white shadow-sm" />
+                )}
+                {activeConversation.is_online && isOnline && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-[2.5px] border-white shadow-sm" />
                 )}
               </div>
@@ -210,7 +236,10 @@ export default function ChatPage() {
                   {participant.full_name || activeConversation.participant_name || 'Unknown'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  {activeConversation.is_online ? 'Online' : 'Offline'}
+                  {isOnline
+                    ? activeConversation.is_online ? 'Online' : 'Offline'
+                    : 'You are offline'
+                  }
                 </p>
               </div>
             </div>
@@ -236,10 +265,20 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* ── Offline Warning ── */}
+            {!isOnline && (
+              <div className="px-4 md:px-5 py-3 bg-red-50 border-t border-red-200 flex items-center gap-2.5">
+                <WifiOff className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span className="text-xs md:text-sm font-medium text-red-700">
+                  You are offline. Messages cannot be sent.
+                </span>
+              </div>
+            )}
+
             {/* ── Input ── */}
             <ChatInput
               onSend={handleSend}
-              disabled={sending}
+              disabled={sending || !isOnline}
             />
           </>
         ) : (

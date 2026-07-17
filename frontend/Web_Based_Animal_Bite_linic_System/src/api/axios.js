@@ -9,7 +9,23 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// ── Offline interceptor (runs FIRST) ──
+// Reject the request immediately when the browser reports no connection,
+// so we never spam the backend with doomed requests.
+api.interceptors.request.use(
+  (config) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return Promise.reject({
+        offline: true,
+        message: 'No internet connection. Please reconnect and try again.',
+      });
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Request interceptor to add auth token (runs after offline check)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -21,10 +37,15 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle auth errors
+// Response interceptor to handle auth errors and offline errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Offline errors — let the calling code handle them gracefully
+    if (error?.offline) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

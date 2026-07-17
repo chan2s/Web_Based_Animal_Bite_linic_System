@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { patientAPI } from '../../api/axios';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import Loader from '../../components/common/Loader';
-import { Search, Plus, Users, ExternalLink, Edit3 } from 'lucide-react';
+import { Search, Plus, Users, ExternalLink, Edit3, WifiOff, RefreshCw } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -19,6 +20,7 @@ const itemVariants = {
 };
 
 export default function PatientList() {
+  const { isOnline } = useNetworkStatus();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -28,10 +30,16 @@ export default function PatientList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchPatients();
-  }, [page, genderFilter]);
+    if (isOnline) {
+      fetchPatients();
+    }
+  }, [page, genderFilter, isOnline]); // Handles initial load AND re-fetch on reconnect
 
   const fetchPatients = async () => {
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const params = { page, page_size: 20 };
@@ -41,11 +49,41 @@ export default function PatientList() {
       setPatients(response.data.results || response.data);
       setTotal(response.data.count || response.data.length || 0);
     } catch (error) {
-      console.error('Failed to fetch patients:', error);
+      if (error?.offline) {
+        // Offline, handled by isOnline
+      } else {
+        console.error('Failed to fetch patients:', error);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Show offline message when not online and no data cached
+  if (!isOnline && patients.length === 0) {
+    return (
+      <motion.div
+        className="flex flex-col items-center justify-center py-20 text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="w-16 h-16 rounded-2xl bg-orange-50 flex items-center justify-center mb-4">
+          <WifiOff className="w-8 h-8 text-orange-400" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-800 mb-1">No internet connection.</h3>
+        <p className="text-sm text-slate-500 max-w-[300px] mb-6">
+          Reconnect to continue using the Animal Bite Clinic System.
+        </p>
+        <button
+          onClick={fetchPatients}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Retry
+        </button>
+      </motion.div>
+    );
+  }
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -87,9 +125,14 @@ export default function PatientList() {
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
-          <Link to="/patients/new" className="btn-primary">
+          <Link
+            to={isOnline ? "/patients/new" : "#"}
+            className={`btn-primary ${!isOnline ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
+            onClick={(e) => { if (!isOnline) { e.preventDefault(); } }}
+            title={!isOnline ? 'Offline — cannot register patients' : 'Register Patient'}
+          >
             <Plus className="w-4 h-4" />
-            Register Patient
+            Register Patient {!isOnline && '(Offline)'}
           </Link>
         </div>
       </motion.div>
@@ -103,9 +146,14 @@ export default function PatientList() {
           </div>
           <h3>No Patients Found</h3>
           <p>Register a new patient to get started.</p>
-          <Link to="/patients/new" className="btn-primary">
+          <Link
+            to={isOnline ? "/patients/new" : "#"}
+            className={`btn-primary ${!isOnline ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
+            onClick={(e) => { if (!isOnline) { e.preventDefault(); } }}
+            title={!isOnline ? 'Offline — cannot register patients' : 'Register Patient'}
+          >
             <Plus className="w-4 h-4" />
-            Register Patient
+            Register Patient {!isOnline && '(Offline)'}
           </Link>
         </motion.div>
       ) : (

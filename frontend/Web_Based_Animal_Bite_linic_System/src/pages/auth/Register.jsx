@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Cross } from 'lucide-react';
+import { Cross, WifiOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { authAPI } from '../../api/axios';
 import { showSuccess, showError } from '../../hooks/useToast';
 
@@ -17,6 +18,8 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const prefersReducedMotion = useReducedMotion();
+
+  const { isOnline } = useNetworkStatus();
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -49,6 +52,11 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!isOnline) {
+      showError('No internet connection. Please reconnect and try again.');
+      return;
+    }
 
     if (!formData.first_name.trim()) { setError('First name is required.'); return; }
     if (!formData.last_name.trim()) { setError('Last name is required.'); return; }

@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { dashboardAPI } from '../../api/axios';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import StatCard from '../../components/common/StatCard';
 import Loader from '../../components/common/Loader';
-import { Users, Calendar, Stethoscope, CheckCircle, Syringe, ClipboardList, Package, AlertTriangle } from 'lucide-react';
+import { Users, Calendar, Stethoscope, CheckCircle, Syringe, ClipboardList, Package, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -20,14 +21,17 @@ const itemVariants = {
 };
 
 export default function Dashboard() {
+  const { isOnline } = useNetworkStatus();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    if (isOnline) {
+      fetchDashboard();
+    }
+  }, [isOnline]); // Handles initial load AND re-fetch on reconnect
 
   const fetchDashboard = async () => {
     try {
@@ -35,11 +39,37 @@ export default function Dashboard() {
       const response = await dashboardAPI.stats();
       setData(response.data);
     } catch (err) {
-      setError('Failed to load dashboard data');
+      if (err?.offline) {
+        setError(''); // Don't show error for offline — we show a different UI
+      } else {
+        setError('Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // ── Offline state ──
+  if (!isOnline && !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-orange-50 flex items-center justify-center mb-4">
+          <WifiOff className="w-8 h-8 text-orange-400" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-800 mb-1">No internet connection.</h3>
+        <p className="text-sm text-slate-500 max-w-[300px] mb-6">
+          Reconnect to continue using the Animal Bite Clinic System.
+        </p>
+        <button
+          onClick={fetchDashboard}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (loading) return <Loader text="Loading dashboard..." />;
   if (error) return <div className="error-state">{error}</div>;
@@ -47,16 +77,36 @@ export default function Dashboard() {
 
   const { overview, category_distribution, low_stock_items, upcoming_followups, monthly_statistics, recent_activities } = data;
 
+  // When offline but we have cached data, show dashes with a top banner
   const statCards = [
-    { title: 'Total Patients', value: overview.total_patients, icon: <Users className="w-5 h-5" />, color: '#3b82f6', subtitle: `+${overview.patients_this_month} this month`, onClick: () => navigate('/patients') },
-    { title: "Today's Patients", value: overview.todays_patients, icon: <Calendar className="w-5 h-5" />, color: '#06b6d4', onClick: () => navigate('/patients') },
-    { title: 'Open Cases', value: overview.open_cases, icon: <Stethoscope className="w-5 h-5" />, color: '#ef4444', subtitle: `${overview.ongoing_cases} ongoing`, onClick: () => navigate('/cases') },
-    { title: 'Completed Cases', value: overview.completed_cases, icon: <CheckCircle className="w-5 h-5" />, color: '#10b981', subtitle: `${overview.total_cases} total`, onClick: () => navigate('/cases') },
-    { title: "Today's Vaccinations", value: overview.todays_vaccinations, icon: <Syringe className="w-5 h-5" />, color: '#8b5cf6', subtitle: `${overview.todays_scheduled_vaccinations} scheduled`, onClick: () => navigate('/vaccinations') },
-    { title: 'Upcoming Follow-ups', value: overview.upcoming_followups, icon: <ClipboardList className="w-5 h-5" />, color: '#f59e0b', onClick: () => navigate('/vaccinations') },
-    { title: 'Vaccine Types', value: overview.total_vaccines, icon: <Package className="w-5 h-5" />, color: '#65a30d', onClick: () => navigate('/inventory') },
-    { title: 'Low Stock Items', value: overview.low_stock_count, icon: <AlertTriangle className="w-5 h-5" />, color: overview.low_stock_count > 0 ? '#ef4444' : '#10b981', subtitle: overview.low_stock_count > 0 ? 'Needs attention' : 'All stocked', onClick: () => navigate('/inventory') },
+    { title: 'Total Patients', value: isOnline ? overview.total_patients : '—', icon: <Users className="w-5 h-5" />, color: '#3b82f6', subtitle: isOnline ? `+${overview.patients_this_month} this month` : '', onClick: () => navigate('/patients') },
+    { title: "Today's Patients", value: isOnline ? overview.todays_patients : '—', icon: <Calendar className="w-5 h-5" />, color: '#06b6d4', subtitle: '', onClick: () => navigate('/patients') },
+    { title: 'Open Cases', value: isOnline ? overview.open_cases : '—', icon: <Stethoscope className="w-5 h-5" />, color: '#ef4444', subtitle: isOnline ? `${overview.ongoing_cases} ongoing` : '', onClick: () => navigate('/cases') },
+    { title: 'Completed Cases', value: isOnline ? overview.completed_cases : '—', icon: <CheckCircle className="w-5 h-5" />, color: '#10b981', subtitle: isOnline ? `${overview.total_cases} total` : '', onClick: () => navigate('/cases') },
+    { title: "Today's Vaccinations", value: isOnline ? overview.todays_vaccinations : '—', icon: <Syringe className="w-5 h-5" />, color: '#8b5cf6', subtitle: isOnline ? `${overview.todays_scheduled_vaccinations} scheduled` : '', onClick: () => navigate('/vaccinations') },
+    { title: 'Upcoming Follow-ups', value: isOnline ? overview.upcoming_followups : '—', icon: <ClipboardList className="w-5 h-5" />, color: '#f59e0b', subtitle: '', onClick: () => navigate('/vaccinations') },
+    { title: 'Vaccine Types', value: isOnline ? overview.total_vaccines : '—', icon: <Package className="w-5 h-5" />, color: '#65a30d', subtitle: '', onClick: () => navigate('/inventory') },
+    { title: 'Low Stock Items', value: isOnline ? overview.low_stock_count : '—', icon: <AlertTriangle className="w-5 h-5" />, color: '#94a3b8', subtitle: '', onClick: () => navigate('/inventory') },
   ];
+
+  // Add an offline refresh banner on top when data is cached
+  const offlineBanner = !isOnline && (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
+      <div className="flex items-center gap-2.5">
+        <WifiOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
+        <p className="text-sm text-amber-800 font-medium">
+          Offline — Unable to retrieve latest statistics.
+        </p>
+      </div>
+      <button
+        onClick={fetchDashboard}
+        className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg px-3 py-1.5 transition-colors flex-shrink-0"
+      >
+        <RefreshCw className="w-3 h-3" />
+        Retry
+      </button>
+    </div>
+  );
 
   return (
     <motion.div
@@ -65,6 +115,8 @@ export default function Dashboard() {
       initial="hidden"
       animate="visible"
     >
+      {offlineBanner}
+
       {/* Stats Cards */}
       <div className="stats-grid">
         {statCards.map((card, i) => (

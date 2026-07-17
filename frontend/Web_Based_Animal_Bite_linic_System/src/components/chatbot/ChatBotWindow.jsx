@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Minus, Bot, MessageSquare, Trash2, Lightbulb } from 'lucide-react';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { X, Minus, Bot, MessageSquare, Trash2, Lightbulb, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChatBotInput from './ChatBotInput';
 import ChatBotMessage from './ChatBotMessage';
@@ -129,6 +130,7 @@ function AskAnotherPrompt({ onClick }) {
 // ─── Main Chat Window ──────────────────────────────────────────────────────
 
 export default function ChatBotWindow({ onClose, onMinimize }) {
+  const { isOnline } = useNetworkStatus();
   const [messages, setMessages] = useState(() => loadConversation());
   const [sending, setSending] = useState(false);
   const [showQuickPanel, setShowQuickPanel] = useState(false);
@@ -236,11 +238,15 @@ export default function ChatBotWindow({ onClose, onMinimize }) {
               Animal Bite Clinic Assistant
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              <span className={`relative flex h-2 w-2 ${!isOnline ? 'bg-red-400 rounded-full' : ''}`}>
+                {isOnline && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                )}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline ? 'bg-emerald-400' : 'bg-red-400'}`} />
               </span>
-              <span className="text-[11px] text-blue-100 font-medium">Online</span>
+              <span className={`text-[11px] font-medium ${isOnline ? 'text-blue-100' : 'text-red-200'}`}>
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
             </div>
           </div>
         </div>

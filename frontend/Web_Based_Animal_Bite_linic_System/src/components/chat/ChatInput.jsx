@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, AlertCircle, Smile } from 'lucide-react';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { Send, AlertCircle, Smile, WifiOff } from 'lucide-react';
 
 const MAX_CHARS = 5000;
 const EMOJIS = ['😊', '😂', '❤️', '👍', '🙏', '😢', '😍', '🤔', '🎉', '✨', '💯', '🔥'];
 
 export default function ChatInput({ onSend, onTyping, disabled }) {
+  const { isOnline } = useNetworkStatus();
   const [body, setBody] = useState('');
   const [sendError, setSendError] = useState('');
   const [sending, setSending] = useState(false);
@@ -141,8 +143,8 @@ export default function ChatInput({ onSend, onTyping, disabled }) {
             value={body}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            disabled={disabled || sending}
+            placeholder={!isOnline ? 'You are offline' : 'Type a message...'}
+            disabled={disabled || sending || !isOnline}
             rows={1}
             maxLength={MAX_CHARS}
             className="w-full resize-none rounded-xl md:rounded-2xl border border-gray-300 bg-gray-50 px-4 py-3 md:py-2.5 pr-14 md:pr-16 text-sm md:text-sm text-gray-900 placeholder-gray-400 outline-none transition-all duration-200 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:shadow-sm disabled:opacity-50"
@@ -157,12 +159,15 @@ export default function ChatInput({ onSend, onTyping, disabled }) {
 
         <button
           onClick={handleSend}
-          disabled={!body.trim() || disabled || sending}
+          disabled={!body.trim() || disabled || sending || !isOnline}
           className="flex-shrink-0 flex items-center justify-center w-11 h-11 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-blue-500 text-white transition-all duration-200 hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/25 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:active:scale-100"
           aria-label="Send message"
+          title={!isOnline ? 'Offline - cannot send messages' : 'Send message'}
         >
           {sending ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : !isOnline ? (
+            <WifiOff className="w-4 h-4" />
           ) : (
             <Send className="w-4 h-4" />
           )}

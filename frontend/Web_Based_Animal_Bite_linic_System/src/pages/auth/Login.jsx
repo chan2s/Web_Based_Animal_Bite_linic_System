@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Cross } from 'lucide-react';
+import { Cross, WifiOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { showSuccess, showError, showInfo } from '../../hooks/useToast';
 
 import BackgroundEffects from '../../components/auth/BackgroundEffects';
@@ -17,6 +18,7 @@ export default function Login() {
   const [showSuccessView, setShowSuccessView] = useState(false);
   const [fieldsVisited, setFieldsVisited] = useState({});
   const { login, loading, isAuthenticated } = useAuth();
+  const { isOnline } = useNetworkStatus();
   const navigate = useNavigate();
   const redirectTimeoutRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
@@ -85,6 +87,11 @@ export default function Login() {
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
+
+      if (!isOnline) {
+        showError('No internet connection. Please reconnect and try again.');
+        return;
+      }
 
       const emailError = validateEmail(email);
       const passwordError = validatePassword(password);

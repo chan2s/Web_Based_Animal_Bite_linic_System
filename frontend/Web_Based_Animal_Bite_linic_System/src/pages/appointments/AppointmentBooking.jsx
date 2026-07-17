@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { appointmentAPI } from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import Loader from '../../components/common/Loader';
-import { Calendar, Clock, User, Save, X } from 'lucide-react';
+import { Calendar, Clock, User, Save, X, WifiOff } from 'lucide-react';
 
 export default function AppointmentBooking() {
   const navigate = useNavigate();
@@ -21,6 +22,8 @@ export default function AppointmentBooking() {
     reason: 'vaccination',
     notes: '',
   });
+
+  const { isOnline } = useNetworkStatus();
 
   const [patients, setPatients] = useState([]);
   const [patientSearch, setPatientSearch] = useState('');
@@ -64,6 +67,12 @@ export default function AppointmentBooking() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isOnline) {
+      setError('No internet connection. Please reconnect and try again.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
