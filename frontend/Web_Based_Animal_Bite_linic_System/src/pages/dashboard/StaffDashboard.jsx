@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Users, Calendar, Syringe, ClipboardList, Package, AlertTriangle, MessageSquare, Bell, UserPlus, RefreshCw, WifiOff } from 'lucide-react';
+import { Users, Calendar, Syringe, ClipboardList, Package, AlertTriangle, MessageSquare, Bell, UserPlus, RefreshCw, WifiOff, CheckCircle, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
@@ -52,9 +52,10 @@ export default function StaffDashboard() {
 
   const statCards = [
     { title: "Today's Patients", value: overview.todays_patients, icon: <Users className="w-5 h-5" />, color: '#3b82f6', onClick: () => navigate('/patients') },
-    { title: "Today's Appointments", value: overview.todays_appointments, icon: <Calendar className="w-5 h-5" />, color: '#06b6d4', onClick: () => navigate('/appointments/manage') },
-    { title: 'Vaccinations Today', value: overview.vaccinations_today, icon: <Syringe className="w-5 h-5" />, color: '#10b981', onClick: () => navigate('/vaccinations') },
-    { title: 'Upcoming Follow-ups', value: overview.upcoming_followups, icon: <ClipboardList className="w-5 h-5" />, color: '#f59e0b', onClick: () => navigate('/vaccinations') },
+    { title: "Today's Appointments", value: overview.todays_appointments, icon: <Calendar className="w-5 h-5" />, color: '#06b6d4', subtitle: `${overview.pending_appointments} pending`, onClick: () => navigate('/appointments/manage') },
+    { title: 'Checked In', value: overview.checked_in_patients, icon: <Users className="w-5 h-5" />, color: '#3b82f6', subtitle: 'Waiting for vet', onClick: () => navigate('/appointments/manage') },
+    { title: 'Completed Today', value: overview.completed_today, icon: <CheckCircle className="w-5 h-5" />, color: '#10b981', onClick: () => navigate('/appointments/manage') },
+    { title: 'Cancelled / No-Show', value: overview.cancelled_today, icon: <XCircle className="w-5 h-5" />, color: '#ef4444', onClick: () => navigate('/appointments/manage') },
     { title: 'Low Stock Items', value: overview.low_stock_count, icon: <AlertTriangle className="w-5 h-5" />, color: overview.low_stock_count > 0 ? '#ef4444' : '#10b981', onClick: () => navigate('/inventory') },
   ];
 

@@ -50,9 +50,13 @@ export default function VaccinationList() {
 
   const getResultBadge = (result) => {
     const map = {
+      administered: 'badge-success',
       completed: 'badge-success',
       scheduled: 'badge-info',
       missed: 'badge-danger',
+      refused: 'badge-warning',
+      contraindicated: 'badge-danger',
+      cancelled: 'badge-danger',
       pending: 'badge-warning',
     };
     return map[result] || 'badge-secondary';
@@ -85,10 +89,11 @@ export default function VaccinationList() {
           </form>
           <select value={resultFilter} onChange={(e) => setResultFilter(e.target.value)} className="filter-select">
             <option value="">All Results</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="completed">Completed</option>
+            <option value="administered">Administered</option>
             <option value="missed">Missed</option>
-            <option value="pending">Pending</option>
+            <option value="refused">Refused</option>
+            <option value="contraindicated">Contraindicated</option>
+            <option value="cancelled">Cancelled</option>
           </select>
           <Link to="/vaccinations/new" className="btn-primary">
             <Plus className="w-4 h-4" />

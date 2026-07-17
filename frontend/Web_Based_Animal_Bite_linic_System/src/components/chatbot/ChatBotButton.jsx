@@ -1,5 +1,5 @@
-import { MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { MessageCircle } from 'lucide-react';
 
 export default function ChatBotButton({ onClick }) {
   return (
@@ -17,7 +17,7 @@ export default function ChatBotButton({ onClick }) {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
           </span>
-          <span className="text-sm text-gray-700 font-medium">Need help? Chat with us!</span>
+          {/* <span className="text-sm text-gray-700 font-medium">Need help? Chat with us!</span> */}
         </div>
         {/* Arrow */}
         <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-r border-b border-gray-100 rotate-45 rounded-br-sm" />

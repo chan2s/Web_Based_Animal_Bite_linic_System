@@ -76,7 +76,7 @@ class ClinicConfiguration(models.Model):
 
 
 class Appointment(models.Model):
-    """Vaccination appointment booking record."""
+    """Vaccination appointment booking record with full clinical workflow."""
     
     REASON_CHOICES = [
         ('new_bite', 'New Animal Bite'),
@@ -88,9 +88,14 @@ class Appointment(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
+        ('checked_in', 'Checked In'),
+        ('under_consultation', 'Under Consultation'),
+        ('vaccination_ongoing', 'Vaccination Ongoing'),
+        ('observation', 'Observation'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
         ('rejected', 'Rejected'),
+        ('no_show', 'No Show'),
         ('rescheduled', 'Rescheduled'),
     ]
     
@@ -100,6 +105,12 @@ class Appointment(models.Model):
     # Who booked this appointment
     booked_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='appointments'
+    )
+    
+    # Link to Patient model for clinical workflow
+    patient = models.ForeignKey(
+        'patients.Patient', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='appointments'
     )
     
     # Patient details (can differ from the user if booking for someone else)
@@ -114,18 +125,38 @@ class Appointment(models.Model):
     reason_other = models.CharField(max_length=200, blank=True)
     notes = models.TextField(blank=True)
     
-    # Status
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    # Clinical workflow status
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     staff_notes = models.TextField(blank=True, help_text="Internal notes from clinic staff")
     
     # Rescheduling tracking
     original_date = models.DateField(null=True, blank=True)
     original_time_slot = models.CharField(max_length=5, blank=True)
     
-    # Who handled this appointment (staff)
+    # Who handled / is handling this appointment
     handled_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='handled_appointments'
+    )
+    assigned_veterinarian = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='assigned_appointments'
+    )
+    
+    # Timestamps for each workflow stage
+    checked_in_at = models.DateTimeField(null=True, blank=True)
+    consultation_started_at = models.DateTimeField(null=True, blank=True)
+    vaccination_started_at = models.DateTimeField(null=True, blank=True)
+    observation_started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Observation details
+    observation_end = models.DateTimeField(null=True, blank=True)
+    observation_condition = models.TextField(blank=True)
+    observation_notes = models.TextField(blank=True)
+    released_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='released_appointments'
     )
     
     # Metadata
@@ -142,6 +173,7 @@ class Appointment(models.Model):
             models.Index(fields=['appointment_date', 'time_slot']),
             models.Index(fields=['status']),
             models.Index(fields=['booked_by']),
+            models.Index(fields=['assigned_veterinarian']),
         ]
         # Prevent duplicate: same patient can't book same date+time
         unique_together = ['booked_by', 'appointment_date', 'time_slot']
@@ -164,10 +196,142 @@ class Appointment(models.Model):
     @property
     def can_cancel(self):
         """Check if appointment can be cancelled based on cutoff time."""
-        if self.status in ['completed', 'cancelled', 'rejected']:
+        if self.status in ['completed', 'cancelled', 'rejected', 'no_show']:
             return False
         from datetime import datetime, date, timedelta as td
         cutoff_hours = ClinicConfiguration.objects.first().cancel_cutoff_hours if ClinicConfiguration.objects.exists() else 2
         appointment_datetime = datetime.combine(self.appointment_date, datetime.strptime(self.time_slot, '%H:%M').time())
         now = datetime.now()
         return (appointment_datetime - now) > td(hours=cutoff_hours)
+    
+    @property
+    def current_step_index(self):
+        """Return the index of the current step in the workflow for UI progress tracking."""
+        steps = ['pending', 'approved', 'checked_in', 'under_consultation',
+                 'vaccination_ongoing', 'observation', 'completed']
+        if self.status in steps:
+            return steps.index(self.status)
+        return -1
+    
+    @property
+    def workflow_progress(self):
+        """Return workflow progress percentage (0-100)."""
+        steps = ['pending', 'approved', 'checked_in', 'under_consultation',
+                 'vaccination_ongoing', 'observation', 'completed']
+        if self.status in steps:
+            return int((steps.index(self.status) / (len(steps) - 1)) * 100)
+        if self.status in ['cancelled', 'rejected', 'no_show']:
+            return 0
+        return 50
+
+
+class ConsultationReport(models.Model):
+    """Clinical findings recorded during a consultation."""
+    
+    SYMPTOM_SEVERITY = [
+        ('none', 'None'),
+        ('mild', 'Mild'),
+        ('moderate', 'Moderate'),
+        ('severe', 'Severe'),
+    ]
+    
+    # Relationships
+    appointment = models.OneToOneField(
+        Appointment, on_delete=models.CASCADE,
+        related_name='consultation'
+    )
+    patient = models.ForeignKey(
+        'patients.Patient', on_delete=models.CASCADE,
+        related_name='consultations'
+    )
+    case = models.ForeignKey(
+        'cases.AnimalBiteCase', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='consultations'
+    )
+    
+    # Vital Signs
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    temperature_celsius = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    
+    # Clinical Findings
+    clinical_findings = models.TextField(blank=True)
+    symptoms = models.TextField(blank=True, help_text="Reported symptoms")
+    symptom_severity = models.CharField(max_length=10, choices=SYMPTOM_SEVERITY, default='none')
+    
+    # Diagnosis & Treatment
+    diagnosis = models.TextField(blank=True)
+    treatment_plan = models.TextField(blank=True)
+    rabies_risk_assessment = models.TextField(blank=True)
+    
+    # Additional Notes
+    notes = models.TextField(blank=True)
+    
+    # Who recorded this
+    recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='consultation_reports'
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'consultation_reports'
+        verbose_name = 'Consultation Report'
+        verbose_name_plural = 'Consultation Reports'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Consultation for {self.patient.get_full_name()} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+class Notification(models.Model):
+    """In-system notification for users."""
+    
+    NOTIFICATION_TYPES = [
+        ('appointment_approved', 'Appointment Approved'),
+        ('appointment_rejected', 'Appointment Rejected'),
+        ('appointment_rescheduled', 'Appointment Rescheduled'),
+        ('appointment_reminder', 'Appointment Reminder'),
+        ('checked_in', 'Patient Checked In'),
+        ('ready_for_vet', 'Ready for Veterinarian'),
+        ('consultation_started', 'Consultation Started'),
+        ('vaccination_complete', 'Vaccination Complete'),
+        ('next_dose_reminder', 'Next Dose Reminder'),
+        ('observation_started', 'Observation Started'),
+        ('treatment_completed', 'Treatment Completed'),
+        ('low_stock_alert', 'Low Stock Alert'),
+        ('new_message', 'New Message'),
+        ('system', 'System Notification'),
+    ]
+    
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications'
+    )
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    
+    # Optional link to related objects
+    appointment = models.ForeignKey(
+        Appointment, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='notifications'
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'notifications'
+        verbose_name = 'Notification'
+        verbose_name_plural = 'Notifications'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read']),
+            models.Index(fields=['notification_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_notification_type_display()} - {self.recipient.username}"

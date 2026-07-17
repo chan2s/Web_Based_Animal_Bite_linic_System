@@ -34,19 +34,28 @@ class VaccinationRecordListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for listing vaccinations."""
     
     patient_name = serializers.SerializerMethodField()
+    patient_id_display = serializers.SerializerMethodField()
     vaccine_name = serializers.SerializerMethodField()
     
     class Meta:
         model = VaccinationRecord
-        fields = ['id', 'patient_name', 'dose_type', 'dose_number',
+        fields = ['id', 'patient', 'patient_name', 'patient_id_display', 'dose_type', 'dose_number',
                   'scheduled_date', 'administered_date', 'result',
-                  'vaccine_name', 'batch_number', 'created_at']
+                  'vaccine_name', 'vaccine', 'batch_number', 'administered_by_name', 'created_at']
     
     def get_patient_name(self, obj):
         return obj.patient.get_full_name()
     
+    def get_patient_id_display(self, obj):
+        return obj.patient.patient_id_display
+    
     def get_vaccine_name(self, obj):
         return str(obj.vaccine) if obj.vaccine else None
+
+    def get_administered_by_name(self, obj):
+        if obj.administered_by:
+            return obj.administered_by.get_full_name() or obj.administered_by.username
+        return None
 
 
 class VaccinationScheduleSerializer(serializers.ModelSerializer):

@@ -164,9 +164,34 @@ export const appointmentAPI = {
   reject: (id, reason) => api.post(`/appointments/${id}/reject/`, { reason }),
   complete: (id) => api.post(`/appointments/${id}/complete/`),
   
+  // Workflow actions
+  checkIn: (id) => api.post(`/appointments/${id}/check-in/`),
+  startConsultation: (id, vetId) => api.post(`/appointments/${id}/start-consultation/`, { veterinarian_id: vetId }),
+  saveConsultation: (id, data) => api.post(`/appointments/${id}/save-consultation/`, data),
+  startVaccination: (id) => api.post(`/appointments/${id}/start-vaccination/`),
+  administerVaccination: (id, data) => api.post(`/appointments/${id}/administer-vaccination/`, data),
+  startObservation: (id, data) => api.post(`/appointments/${id}/start-observation/`, data),
+  noShow: (id, reason) => api.post(`/appointments/${id}/no-show/`, { reason }),
+  
+  // Veterinarian queue
+  vetQueue: () => api.get('/appointments/veterinarian/queue/'),
+  
+  // Consultation reports
+  consultations: (params) => api.get('/appointments/consultations/', { params }),
+  getConsultation: (id) => api.get(`/appointments/consultations/${id}/`),
+  updateConsultation: (id, data) => api.patch(`/appointments/consultations/${id}/`, data),
+  
   // Configuration
   getConfig: () => api.get('/appointments/config/'),
   updateConfig: (data) => api.patch('/appointments/config/', data),
+};
+
+// Notification APIs
+export const notificationAPI = {
+  list: (params) => api.get('/appointments/notifications/', { params }),
+  markRead: (id) => api.post(`/appointments/notifications/${id}/read/`),
+  markAllRead: () => api.post('/appointments/notifications/read-all/'),
+  unreadCount: () => api.get('/appointments/notifications/unread-count/'),
 };
 
 // Audit Log APIs

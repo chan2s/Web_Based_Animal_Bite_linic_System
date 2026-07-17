@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, time as time_type
 from django.db.models import Count, Q
+from django.utils import timezone
 from .models import Appointment, ClinicConfiguration
 
 
@@ -187,6 +188,121 @@ def check_duplicate_booking(user, target_date, time_slot, exclude_id=None):
     if exclude_id:
         query = query.exclude(id=exclude_id)
     return query.exists()
+
+
+# ─── Auto Dose Scheduling ────────────────────────────────────────────
+
+def create_vaccination_schedule(vaccination_record, appointment=None):
+    """Auto-create the next dose schedule after a vaccination.
+    
+    Standard Rabies PEP schedule: Day 0, 3, 7, 14, 28
+    """
+    from vaccinations.models import VaccinationSchedule
+    
+    dose_number = vaccination_record.dose_number
+    administered_date = vaccination_record.administered_date
+    case = vaccination_record.case
+    patient = vaccination_record.patient
+
+    # Standard PEP schedule offsets in days
+    SCHEDULE_OFFSETS = {
+        1: {'next_dose': 2, 'offset_days': 3},    # After Dose 1 → Dose 2 at Day 3
+        2: {'next_dose': 3, 'offset_days': 4},    # After Dose 2 → Dose 3 at Day 7
+        3: {'next_dose': 4, 'offset_days': 7},    # After Dose 3 → Dose 4 at Day 14
+        4: {'next_dose': 5, 'offset_days': 14},   # After Dose 4 → Dose 5 at Day 28
+    }
+
+    if dose_number not in SCHEDULE_OFFSETS:
+        return None  # No more doses needed
+
+    next_info = SCHEDULE_OFFSETS[dose_number]
+    next_date = administered_date + timedelta(days=next_info['offset_days'])
+
+    # Determine dose type
+    dose_types = {1: 'first', 2: 'second', 3: 'third', 4: 'fourth', 5: 'fifth'}
+    dose_type = dose_types.get(next_info['next_dose'], 'booster')
+
+    schedule = VaccinationSchedule.objects.create(
+        case=case,
+        patient=patient,
+        dose_number=next_info['next_dose'],
+        dose_type=dose_type,
+        scheduled_date=next_date,
+        notes=f"Auto-scheduled from appointment {appointment.appointment_number if appointment else 'N/A'}",
+    )
+
+    # Create a notification for the patient
+    if appointment and appointment.booked_by:
+        from django.contrib.auth.models import User
+        create_notification(
+            recipient=appointment.booked_by,
+            notification_type='next_dose_reminder',
+            title=f'Dose {next_info["next_dose"]} Scheduled',
+            message=f'Your next vaccination (Dose {next_info["next_dose"]}) is scheduled for {next_date}.',
+            appointment=appointment,
+        )
+
+    return schedule
+
+
+# ─── Inventory Deduction ────────────────────────────────────────────
+
+def deduct_vaccine_stock(vaccination_record):
+    """Auto-deduct vaccine stock when a vaccination is administered.
+    Creates a stock-out transaction in VaccineBatch."""
+    from inventory.models import Vaccine, VaccineBatch, LowStockAlert
+
+    vaccine = vaccination_record.vaccine
+    if not vaccine:
+        return None
+
+    batch = VaccineBatch.objects.create(
+        vaccine=vaccine,
+        batch_number=vaccination_record.batch_number or 'AUTO',
+        transaction_type='out',
+        quantity=1,
+        reference_record=vaccination_record,
+        notes=f"Auto-deducted for vaccination record #{vaccination_record.id}",
+        recorded_by=vaccination_record.administered_by,
+    )
+
+    # Check low stock threshold
+    try:
+        alert = LowStockAlert.objects.get(vaccine=vaccine, is_enabled=True)
+        current = vaccine.current_stock
+        if current <= alert.threshold:
+            # Notify admin and staff about low stock
+            from django.contrib.auth.models import User
+            admin_users = User.objects.filter(profile__role='admin')
+            staff_users = User.objects.filter(profile__role='staff')
+            for user in admin_users.union(staff_users):
+                create_notification(
+                    recipient=user,
+                    notification_type='low_stock_alert',
+                    title='Low Stock Alert',
+                    message=f'{vaccine.name} stock is low: {current} remaining (threshold: {alert.threshold})',
+                )
+            alert.last_triggered_at = timezone.now()
+            alert.save()
+    except LowStockAlert.DoesNotExist:
+        pass
+
+    return batch
+
+
+# ─── Notification Helper ────────────────────────────────────────────
+
+def create_notification(recipient, notification_type, title, message, appointment=None):
+    """Create an in-system notification."""
+    from .models import Notification
+    notification = Notification.objects.create(
+        recipient=recipient,
+        notification_type=notification_type,
+        title=title,
+        message=message,
+        appointment=appointment,
+    )
+    return notification
 
 
 def get_clinic_info():

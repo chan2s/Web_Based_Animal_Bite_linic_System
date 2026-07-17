@@ -51,12 +51,12 @@ export default function VeterinarianDashboard() {
   const { overview } = data;
 
   const statCards = [
-    { title: 'Assigned Patients', value: overview.assigned_patients, icon: <Users className="w-5 h-5" />, color: '#3b82f6', onClick: () => navigate('/patients') },
+    { title: 'Patients Waiting', value: overview.patients_waiting, icon: <Users className="w-5 h-5" />, color: overview.patients_waiting > 0 ? '#ef4444' : '#3b82f6', subtitle: 'Ready for consultation', onClick: () => navigate('/appointments/manage') },
     { title: 'Active Cases', value: overview.active_cases, icon: <Activity className="w-5 h-5" />, color: '#ef4444', subtitle: 'Requires attention', onClick: () => navigate('/cases') },
-    { title: "Today's Consultations", value: overview.today_consultations, icon: <Calendar className="w-5 h-5" />, color: '#06b6d4', onClick: () => navigate('/appointments/manage') },
-    { title: 'Ongoing Treatments', value: overview.active_cases, icon: <Stethoscope className="w-5 h-5" />, color: '#f59e0b', onClick: () => navigate('/cases') },
-    { title: 'Completed Treatments', value: overview.completed_cases, icon: <CheckCircle className="w-5 h-5" />, color: '#10b981', onClick: () => navigate('/cases') },
-    { title: 'Vaccinations Completed', value: overview.vaccinations_completed, icon: <Syringe className="w-5 h-5" />, color: '#8b5cf6', onClick: () => navigate('/vaccinations') },
+    { title: 'Current Consultations', value: overview.current_consultations, icon: <Stethoscope className="w-5 h-5" />, color: '#8b5cf6', subtitle: 'In progress', onClick: () => navigate('/appointments/manage') },
+    { title: "Today's Vaccinations", value: overview.todays_vaccinations, icon: <Syringe className="w-5 h-5" />, color: '#06b6d4', onClick: () => navigate('/vaccinations') },
+    { title: 'Upcoming Follow-ups', value: overview.upcoming_followups, icon: <Calendar className="w-5 h-5" />, color: '#f59e0b', onClick: () => navigate('/vaccinations') },
+    { title: 'Completed Today', value: overview.completed_today, icon: <CheckCircle className="w-5 h-5" />, color: '#10b981', onClick: () => navigate('/appointments/manage') },
   ];
 
   return (

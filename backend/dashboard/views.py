@@ -69,6 +69,10 @@ def _role_dashboard_data(request, role):
                 'total_veterinarians': total_vets,
                 'total_admins': total_admins,
                 'todays_appointments': todays_appts,
+                'pending_appointments': Appointment.objects.filter(appointment_date=today, status='pending').count(),
+                'checked_in_today': Appointment.objects.filter(appointment_date=today, status='checked_in').count(),
+                'in_consultation': Appointment.objects.filter(status='under_consultation').count(),
+                'completed_today': Appointment.objects.filter(appointment_date=today, status='completed').count(),
                 'open_cases': open_cases,
                 'completed_cases': completed_cases,
                 'total_vaccines': total_vaccines,
@@ -86,6 +90,10 @@ def _role_dashboard_data(request, role):
         # ── Staff: operational focus ──
         todays_patients = Patient.objects.filter(created_at__date=today).count()
         todays_appts = Appointment.objects.filter(appointment_date=today).count()
+        pending_appts = Appointment.objects.filter(appointment_date=today, status='pending').count()
+        checked_in = Appointment.objects.filter(appointment_date=today, status='checked_in').count()
+        completed_today = Appointment.objects.filter(appointment_date=today, status='completed').count()
+        cancelled_today = Appointment.objects.filter(appointment_date=today, status__in=['cancelled', 'no_show']).count()
         todays_vax = VaccinationRecord.objects.filter(administered_date=today).count()
         upcoming = VaccinationSchedule.objects.filter(is_completed=False, scheduled_date__gte=today).count()
         low_stock = sum(1 for a in LowStockAlert.objects.filter(is_enabled=True) if a.vaccine.current_stock <= a.threshold)
@@ -94,6 +102,10 @@ def _role_dashboard_data(request, role):
             'overview': {
                 'todays_patients': todays_patients,
                 'todays_appointments': todays_appts,
+                'pending_appointments': pending_appts,
+                'checked_in_patients': checked_in,
+                'completed_today': completed_today,
+                'cancelled_today': cancelled_today,
                 'vaccinations_today': todays_vax,
                 'upcoming_followups': upcoming,
                 'low_stock_count': low_stock,
@@ -105,8 +117,21 @@ def _role_dashboard_data(request, role):
         total_cases = AnimalBiteCase.objects.filter(is_active=True).count()
         active_cases = AnimalBiteCase.objects.filter(case_status__in=['open', 'ongoing']).count()
         completed = AnimalBiteCase.objects.filter(case_status='completed').count()
-        todays_consultations = Appointment.objects.filter(appointment_date=today).count()
-        vax_completed = VaccinationRecord.objects.filter(administered_date=today, result='administered').count()
+        
+        # Appointment workflow statuses
+        patients_waiting = Appointment.objects.filter(
+            appointment_date=today, status__in=['checked_in', 'approved']
+        ).count()
+        current_consultation = Appointment.objects.filter(
+            appointment_date=today, status='under_consultation'
+        ).count()
+        todays_vax = VaccinationRecord.objects.filter(administered_date=today, result='administered').count()
+        upcoming_followups = VaccinationSchedule.objects.filter(
+            is_completed=False, scheduled_date__gte=today
+        ).count()
+        completed_cases_today = Appointment.objects.filter(
+            appointment_date=today, status='completed'
+        ).count()
 
         data.update({
             'overview': {
@@ -114,8 +139,11 @@ def _role_dashboard_data(request, role):
                 'active_cases': active_cases,
                 'total_cases': total_cases,
                 'completed_cases': completed,
-                'today_consultations': todays_consultations,
-                'vaccinations_completed': vax_completed,
+                'patients_waiting': patients_waiting,
+                'current_consultations': current_consultation,
+                'todays_vaccinations': todays_vax,
+                'upcoming_followups': upcoming_followups,
+                'completed_today': completed_cases_today,
             },
         })
 

@@ -46,6 +46,10 @@ class VaccinationRecord(models.Model):
     patient = models.ForeignKey(
         Patient, on_delete=models.CASCADE, related_name='vaccinations'
     )
+    appointment = models.ForeignKey(
+        'appointments.Appointment', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='vaccination_records'
+    )
     case = models.ForeignKey(
         AnimalBiteCase, on_delete=models.CASCADE, related_name='vaccinations',
         null=True, blank=True
