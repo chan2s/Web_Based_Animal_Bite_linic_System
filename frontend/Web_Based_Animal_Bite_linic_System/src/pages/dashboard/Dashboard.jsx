@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AlertTriangle, Calendar, CheckCircle, ClipboardList, Package, RefreshCw, Stethoscope, Syringe, Users, WifiOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { dashboardAPI } from '../../api/axios';
-import { useNetworkStatus } from '../../contexts/NetworkContext';
-import StatCard from '../../components/common/StatCard';
 import Loader from '../../components/common/Loader';
-import { Users, Calendar, Stethoscope, CheckCircle, Syringe, ClipboardList, Package, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
+import StatCard from '../../components/common/StatCard';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -251,7 +251,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Recent Activity */}
-        <motion.div className="card dashboard-card" variants={itemVariants}>
+        {/* <motion.div className="card dashboard-card" variants={itemVariants}>
           <div className="card-header">
             <h3>Recent Activity</h3>
           </div>
@@ -287,7 +287,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-        </motion.div>
+        </motion.div> */}
       </div>
 
       {/* Upcoming Follow-ups */}

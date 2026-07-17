@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { patientAPI, caseAPI, vaccinationAPI } from '../../api/axios';
+import { useAuth } from '../../contexts/AuthContext';
 import Loader from '../../components/common/Loader';
-import { ExternalLink, Edit3, Plus, Syringe, Stethoscope, User } from 'lucide-react';
+import { ExternalLink, Edit3, Plus, Syringe, Stethoscope, User, ShieldOff } from 'lucide-react';
 
 export default function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
   const [patient, setPatient] = useState(null);
+  const isAdmin = hasRole('admin');
   const [cases, setCases] = useState([]);
   const [vaccinations, setVaccinations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +81,12 @@ export default function PatientDetail() {
             <Syringe className="w-4 h-4" />
             Record Vaccination
           </Link>
+          {isAdmin && (
+            <Link to={`/patients/${id}/edit`} className="btn-secondary">
+              <Edit3 className="w-4 h-4" />
+              Edit Patient
+            </Link>
+          )}
         </div>
       </motion.div>
 
@@ -138,10 +147,17 @@ export default function PatientDetail() {
             </div>
 
             <div className="form-actions">
-              <Link to={`/patients/${id}/edit`} className="btn-secondary">
-                <Edit3 className="w-4 h-4" />
-                Edit Patient
-              </Link>
+              {isAdmin ? (
+                <Link to={`/patients/${id}/edit`} className="btn-secondary">
+                  <Edit3 className="w-4 h-4" />
+                  Edit Patient
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
+                  <ShieldOff className="w-3.5 h-3.5" />
+                  Only administrators can edit patient records
+                </div>
+              )}
             </div>
           </div>
         </motion.div>

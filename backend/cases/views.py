@@ -2,6 +2,8 @@ from rest_framework import generics, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import AnimalBiteCase
 from .serializers import AnimalBiteCaseSerializer, AnimalBiteCaseListSerializer
+from accounts.permissions import CanDeleteRecord, _get_role, STAFF_ROLES
+from audit_logs.models import log_activity
 
 
 class AnimalBiteCaseListCreateView(generics.ListCreateAPIView):
@@ -23,7 +25,17 @@ class AnimalBiteCaseListCreateView(generics.ListCreateAPIView):
         return AnimalBiteCaseSerializer
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        case = serializer.save(created_by=self.request.user)
+        log_activity(
+            user=self.request.user,
+            action='create',
+            module='cases',
+            description=f"Created case {case.case_number} for {case.patient.get_full_name()}",
+            model_name='AnimalBiteCase',
+            object_id=case.id,
+            object_repr=str(case),
+            request=self.request,
+        )
 
 
 class AnimalBiteCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -33,6 +45,21 @@ class AnimalBiteCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AnimalBiteCaseSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def get_permissions(self):
+        if self.request.method == 'DELETE':
+            return [permissions.IsAuthenticated(), CanDeleteRecord()]
+        return [permissions.IsAuthenticated()]
+    
     def perform_destroy(self, instance):
         instance.is_active = False
         instance.save()
+        log_activity(
+            user=self.request.user,
+            action='delete',
+            module='cases',
+            description=f"Deactivated case {instance.case_number}",
+            model_name='AnimalBiteCase',
+            object_id=instance.id,
+            object_repr=str(instance),
+            request=self.request,
+        )

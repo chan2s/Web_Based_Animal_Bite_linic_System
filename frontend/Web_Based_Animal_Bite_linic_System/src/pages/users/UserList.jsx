@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { userAPI } from '../../api/axios';
 import Loader from '../../components/common/Loader';
-import { Search, UserCog } from 'lucide-react';
+import { Search, UserCog, UserPlus } from 'lucide-react';
 
 export default function UserList() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
 
@@ -68,10 +70,15 @@ export default function UserList() {
             <option value="">All Roles</option>
             <option value="admin">Admin</option>
             <option value="doctor">Doctor</option>
+            <option value="veterinarian">Veterinarian</option>
             <option value="nurse">Nurse</option>
             <option value="staff">Staff</option>
             <option value="patient">Patient</option>
           </select>
+          <Link to="/users/new" className="btn-primary">
+            <UserPlus className="w-4 h-4" />
+            Create User
+          </Link>
         </div>
       </div>
 

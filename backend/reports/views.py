@@ -8,6 +8,8 @@ from patients.models import Patient
 from cases.models import AnimalBiteCase
 from vaccinations.models import VaccinationRecord, VaccinationSchedule
 from inventory.models import Vaccine, VaccineBatch
+from accounts.permissions import CanViewReports
+from audit_logs.models import log_activity
 
 
 def get_date_range(period, date_obj=None):
@@ -39,9 +41,9 @@ def get_date_range(period, date_obj=None):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, CanViewReports])
 def patient_report_view(request):
-    """Generate patient report for a period."""
+    """Generate patient report for a period (admin only)."""
     period = request.query_params.get('period', 'monthly')
     start_date_str = request.query_params.get('start_date', '')
     end_date_str = request.query_params.get('end_date', '')
@@ -84,9 +86,9 @@ def patient_report_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, CanViewReports])
 def case_report_view(request):
-    """Generate bite case report for a period."""
+    """Generate bite case report for a period (admin only)."""
     period = request.query_params.get('period', 'monthly')
     start_date_str = request.query_params.get('start_date', '')
     end_date_str = request.query_params.get('end_date', '')
@@ -137,9 +139,9 @@ def case_report_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, CanViewReports])
 def vaccination_report_view(request):
-    """Generate vaccination report for a period."""
+    """Generate vaccination report for a period (admin only)."""
     period = request.query_params.get('period', 'monthly')
     start_date_str = request.query_params.get('start_date', '')
     end_date_str = request.query_params.get('end_date', '')
@@ -192,9 +194,9 @@ def vaccination_report_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, CanViewReports])
 def inventory_report_view(request):
-    """Generate inventory report."""
+    """Generate inventory report (admin only)."""
     vaccines = Vaccine.objects.filter(is_active=True)
     
     report_data = []
@@ -238,9 +240,9 @@ def inventory_report_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, CanViewReports])
 def summary_report_view(request):
-    """Generate overall summary report."""
+    """Generate overall summary report (admin only)."""
     today = date.today()
     month_start = today.replace(day=1)
     
@@ -273,9 +275,9 @@ def summary_report_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, CanViewReports])
 def daily_report_view(request):
-    """Generate daily report for today."""
+    """Generate daily report for today (admin only)."""
     today = date.today()
     
     return Response({

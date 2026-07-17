@@ -5,65 +5,108 @@ import { useAuth } from '../../contexts/AuthContext';
 import { chatAPI } from '../../api/axios';
 import { Cross, LayoutDashboard, Users, Stethoscope, Syringe, Package, FileBarChart, UserCog, ClipboardList, MessageSquare, Calendar, User, LogOut, Menu, ChevronLeft } from 'lucide-react';
 
+const ROLE_DASHBOARD_MAP = {
+  admin: '/dashboard/admin',
+  doctor: '/dashboard/veterinarian',
+  veterinarian: '/dashboard/veterinarian',
+  nurse: '/dashboard/staff',
+  staff: '/dashboard/staff',
+  patient: '/dashboard/patient',
+};
+
 const menuItems = [
   // ── Patient Menu ──
   {
     section: 'Patient Portal',
     roles: ['patient'],
+    dashboardPath: '/dashboard/patient',
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['patient'] },
+      { path: '/dashboard/patient', label: 'Dashboard', icon: LayoutDashboard, roles: ['patient'] },
       { path: '/appointments/book', label: 'Book Appointment', icon: Calendar, roles: ['patient'] },
       { path: '/appointments/my', label: 'My Appointments', icon: ClipboardList, roles: ['patient'] },
       { path: '/profile', label: 'My Profile', icon: User, roles: ['patient'] },
     ],
   },
-  // ── Staff Menu ──
+  // ── Veterinarian/Doctor Menu ──
+  {
+    section: 'Clinical',
+    roles: ['veterinarian', 'doctor'],
+    dashboardPath: '/dashboard/veterinarian',
+    items: [
+      { path: '/dashboard/veterinarian', label: 'Dashboard', icon: LayoutDashboard, roles: ['veterinarian', 'doctor'] },
+      { path: '/patients', label: 'Patients', icon: Users, roles: ['veterinarian', 'doctor'] },
+      { path: '/cases', label: 'Bite Cases', icon: Stethoscope, roles: ['veterinarian', 'doctor'] },
+      { path: '/vaccinations', label: 'Vaccinations', icon: Syringe, roles: ['veterinarian', 'doctor'] },
+      { path: '/appointments/manage', label: 'Appointments', icon: Calendar, roles: ['veterinarian', 'doctor'] },
+      { path: '/chat', label: 'Messages', icon: MessageSquare, roles: ['veterinarian', 'doctor'], badge: 'unread' },
+    ],
+  },
+  // ── Staff Menu (nurse, staff) ──
   {
     section: 'Main',
-    roles: ['admin', 'doctor', 'nurse', 'staff'],
+    roles: ['nurse', 'staff'],
+    dashboardPath: '/dashboard/staff',
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'doctor', 'nurse', 'staff'] },
+      { path: '/dashboard/staff', label: 'Dashboard', icon: LayoutDashboard, roles: ['nurse', 'staff'] },
+    ],
+  },
+  {
+    section: 'Operations',
+    roles: ['nurse', 'staff'],
+    dashboardPath: '/dashboard/staff',
+    items: [
+      { path: '/patients', label: 'Patients', icon: Users, roles: ['nurse', 'staff'] },
+      { path: '/appointments/book', label: 'Book Appointment', icon: Calendar, roles: ['nurse', 'staff'] },
+      { path: '/appointments/my', label: 'My Appointments', icon: ClipboardList, roles: ['nurse', 'staff'] },
+      { path: '/vaccinations', label: 'Vaccinations', icon: Syringe, roles: ['nurse'] },
+      { path: '/inventory', label: 'Inventory', icon: Package, roles: ['nurse', 'staff'] },
+      { path: '/chat', label: 'Messages', icon: MessageSquare, roles: ['nurse', 'staff'], badge: 'unread' },
+    ],
+  },
+  // ── Admin Menu ──
+  {
+    section: 'Main',
+    roles: ['admin'],
+    dashboardPath: '/dashboard/admin',
+    items: [
+      { path: '/dashboard/admin', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
     ],
   },
   {
     section: 'Management',
-    roles: ['admin', 'doctor', 'nurse', 'staff'],
+    roles: ['admin'],
+    dashboardPath: '/dashboard/admin',
     items: [
-      { path: '/patients', label: 'Patients', icon: Users, roles: ['admin', 'doctor', 'nurse', 'staff'] },
-      { path: '/cases', label: 'Bite Cases', icon: Stethoscope, roles: ['admin', 'doctor', 'nurse'] },
-      { path: '/appointments/book', label: 'Book Appointment', icon: Calendar, roles: ['admin', 'doctor', 'nurse', 'staff'] },
-      { path: '/appointments/my', label: 'My Appointments', icon: ClipboardList, roles: ['admin', 'doctor', 'nurse', 'staff'] },
-      { path: '/appointments/manage', label: 'Manage Appts', icon: Calendar, roles: ['admin', 'doctor', 'nurse'] },
-    ],
-  },
-  {
-    section: 'Vaccination',
-    roles: ['admin', 'doctor', 'nurse', 'staff'],
-    items: [
-      { path: '/vaccinations', label: 'Vaccinations', icon: Syringe, roles: ['admin', 'doctor', 'nurse'] },
-      { path: '/inventory', label: 'Vaccine Inventory', icon: Package, roles: ['admin', 'nurse', 'staff'] },
+      { path: '/patients', label: 'Patients', icon: Users, roles: ['admin'] },
+      { path: '/cases', label: 'Bite Cases', icon: Stethoscope, roles: ['admin'] },
+      { path: '/vaccinations', label: 'Vaccinations', icon: Syringe, roles: ['admin'] },
+      { path: '/inventory', label: 'Inventory', icon: Package, roles: ['admin'] },
+      { path: '/appointments/manage', label: 'Appointments', icon: Calendar, roles: ['admin'] },
     ],
   },
   {
     section: 'Reports',
-    roles: ['admin', 'doctor', 'staff'],
+    roles: ['admin'],
+    dashboardPath: '/dashboard/admin',
     items: [
-      { path: '/reports', label: 'Reports', icon: FileBarChart, roles: ['admin', 'doctor'] },
-    ],
-  },
-  {
-    section: 'Communication',
-    roles: ['admin', 'doctor', 'nurse', 'staff', 'patient'],
-    items: [
-      { path: '/chat', label: 'Messages', icon: MessageSquare, roles: ['admin', 'doctor', 'nurse', 'staff', 'patient'], badge: 'unread' },
+      { path: '/reports', label: 'Reports', icon: FileBarChart, roles: ['admin'] },
     ],
   },
   {
     section: 'Administration',
     roles: ['admin'],
+    dashboardPath: '/dashboard/admin',
     items: [
       { path: '/users', label: 'User Management', icon: UserCog, roles: ['admin'] },
       { path: '/audit-logs', label: 'Audit Logs', icon: ClipboardList, roles: ['admin'] },
+    ],
+  },
+  {
+    section: 'Communication',
+    roles: ['admin'],
+    dashboardPath: '/dashboard/admin',
+    items: [
+      { path: '/chat', label: 'Messages', icon: MessageSquare, roles: ['admin'], badge: 'unread' },
     ],
   },
 ];
@@ -129,7 +172,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                   <li key={item.path}>
                     <NavLink
                       to={item.path}
-                      end={item.path === '/dashboard'}
+                      end={item.path.includes('/dashboard')}
                       className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                       onClick={onMobileClose}
                     >

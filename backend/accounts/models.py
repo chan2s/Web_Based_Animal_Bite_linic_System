@@ -66,6 +66,7 @@ class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Administrator'),
         ('doctor', 'Doctor'),
+        ('veterinarian', 'Veterinarian'),
         ('nurse', 'Nurse'),
         ('staff', 'Staff'),
         ('patient', 'Patient'),

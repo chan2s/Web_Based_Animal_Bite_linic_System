@@ -10,6 +10,8 @@ from .serializers import (
     VaccinationScheduleSerializer
 )
 from inventory.models import Vaccine
+from accounts.permissions import CanDeleteRecord
+from audit_logs.models import log_activity
 
 
 class VaccinationRecordListCreateView(generics.ListCreateAPIView):
@@ -39,6 +41,25 @@ class VaccinationRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = VaccinationRecord.objects.select_related('patient', 'vaccine', 'administered_by').all()
     serializer_class = VaccinationRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        if self.request.method == 'DELETE':
+            return [permissions.IsAuthenticated(), CanDeleteRecord()]
+        return [permissions.IsAuthenticated()]
+    
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save()
+        log_activity(
+            user=self.request.user,
+            action='delete',
+            module='vaccinations',
+            description=f"Deleted vaccination record for {instance.patient.get_full_name()}",
+            model_name='VaccinationRecord',
+            object_id=instance.id,
+            object_repr=str(instance),
+            request=self.request,
+        )
 
 
 class VaccinationScheduleListCreateView(generics.ListCreateAPIView):

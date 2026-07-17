@@ -7,13 +7,15 @@ from .serializers import (
     VaccineSerializer, VaccineListSerializer,
     VaccineBatchSerializer, LowStockAlertSerializer
 )
+from accounts.permissions import CanManageVaccines, CanDeleteRecord
+from audit_logs.models import log_activity
 
 
 class VaccineListCreateView(generics.ListCreateAPIView):
     """List all vaccines or create a new one."""
     
     queryset = Vaccine.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CanManageVaccines]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['vaccine_type', 'is_active']
     search_fields = ['name', 'manufacturer']
@@ -24,6 +26,19 @@ class VaccineListCreateView(generics.ListCreateAPIView):
         if self.request.method == 'GET':
             return VaccineListSerializer
         return VaccineSerializer
+    
+    def perform_create(self, serializer):
+        vaccine = serializer.save()
+        log_activity(
+            user=self.request.user,
+            action='create',
+            module='inventory',
+            description=f"Added vaccine {vaccine.name}",
+            model_name='Vaccine',
+            object_id=vaccine.id,
+            object_repr=str(vaccine),
+            request=self.request,
+        )
 
 
 class VaccineDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -31,51 +46,89 @@ class VaccineDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     queryset = Vaccine.objects.all()
     serializer_class = VaccineSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CanManageVaccines]
+    
+    def perform_update(self, serializer):
+        old = self.get_object()
+        vaccine = serializer.save()
+        log_activity(
+            user=self.request.user,
+            action='update',
+            module='inventory',
+            description=f"Updated vaccine {vaccine.name}",
+            model_name='Vaccine',
+            object_id=vaccine.id,
+            object_repr=str(vaccine),
+            request=self.request,
+        )
+    
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save()
+        log_activity(
+            user=self.request.user,
+            action='delete',
+            module='inventory',
+            description=f"Archived vaccine {instance.name}",
+            model_name='Vaccine',
+            object_id=instance.id,
+            object_repr=str(instance),
+            request=self.request,
+        )
 
 
 class VaccineBatchListCreateView(generics.ListCreateAPIView):
-    """List all stock transactions or create a new one."""
+    """List all stock transactions or create a new one (admin only)."""
     
     queryset = VaccineBatch.objects.select_related('vaccine', 'recorded_by').all()
     serializer_class = VaccineBatchSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CanManageVaccines]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['transaction_type', 'vaccine']
     ordering = ['-created_at']
     
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        batch = serializer.save(recorded_by=self.request.user)
+        log_activity(
+            user=self.request.user,
+            action='create',
+            module='inventory',
+            description=f"Added batch {batch.batch_number} for {batch.vaccine.name}",
+            model_name='VaccineBatch',
+            object_id=batch.id,
+            object_repr=str(batch),
+            request=self.request,
+        )
 
 
 class VaccineBatchDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update or delete a stock transaction."""
+    """Retrieve, update or delete a stock transaction (admin only)."""
     
     queryset = VaccineBatch.objects.select_related('vaccine', 'recorded_by').all()
     serializer_class = VaccineBatchSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CanManageVaccines]
 
 
 class LowStockAlertListCreateView(generics.ListCreateAPIView):
-    """List or configure low stock alerts."""
+    """List or configure low stock alerts (admin only for writes)."""
     
     queryset = LowStockAlert.objects.select_related('vaccine').all()
     serializer_class = LowStockAlertSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CanManageVaccines]
 
 
 class LowStockAlertDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """Retrieve, update or delete a low stock alert config."""
+    """Retrieve, update or delete a low stock alert config (admin only)."""
     
     queryset = LowStockAlert.objects.select_related('vaccine').all()
     serializer_class = LowStockAlertSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, CanManageVaccines]
 
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def low_stock_summary_view(request):
-    """Get all vaccines that are below their threshold."""
+    """Get all vaccines that are below their threshold. All staff can view."""
     alerts = LowStockAlert.objects.filter(is_enabled=True).select_related('vaccine')
     
     low_stock_items = []
@@ -96,7 +149,7 @@ def low_stock_summary_view(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def inventory_summary_view(request):
-    """Get overall inventory summary."""
+    """Get overall inventory summary. All staff can view."""
     vaccines = Vaccine.objects.filter(is_active=True)
     
     summary = []

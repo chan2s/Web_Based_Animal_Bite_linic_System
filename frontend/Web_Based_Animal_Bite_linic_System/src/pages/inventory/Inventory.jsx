@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { inventoryAPI } from '../../api/axios';
+import { useAuth } from '../../contexts/AuthContext';
 import Loader from '../../components/common/Loader';
-import { Search, Package, AlertTriangle, Plus } from 'lucide-react';
+import { Search, Package, AlertTriangle, Plus, ShieldOff } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -18,6 +19,8 @@ const itemVariants = {
 };
 
 export default function Inventory() {
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -65,6 +68,12 @@ export default function Inventory() {
           <p>Manage vaccine stock and supplies</p>
         </div>
         <div className="header-actions">
+          {!isAdmin && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+              <ShieldOff className="w-3 h-3" />
+              View only
+            </div>
+          )}
           <form onSubmit={handleSearch} className="search-form">
             <input
               type="text"
@@ -77,6 +86,12 @@ export default function Inventory() {
               <Search className="w-4 h-4" />
             </button>
           </form>
+          {isAdmin && (
+            <button className="btn-primary">
+              <Plus className="w-4 h-4" />
+              Add Vaccine
+            </button>
+          )}
         </div>
       </motion.div>
 
@@ -101,7 +116,7 @@ export default function Inventory() {
                 <th>Threshold</th>
                 <th>Status</th>
                 <th>Last Updated</th>
-                <th>Actions</th>
+                {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -127,9 +142,12 @@ export default function Inventory() {
                       </span>
                     </td>
                     <td className="text-slate-500">{item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '—'}</td>
-                    <td className="actions-cell">
-                      <button className="btn-sm" title="Restock">📦</button>
-                    </td>
+                    {isAdmin && (
+                      <td className="actions-cell">
+                        <button className="btn-sm" title="Restock">📦</button>
+                        <button className="btn-sm" title="Edit">✏️</button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

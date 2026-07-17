@@ -5,6 +5,10 @@ import Header from './Header';
 
 const pageConfig = {
   '/dashboard': { title: 'Dashboard', subtitle: 'Overview of your clinic operations' },
+  '/dashboard/admin': { title: 'Admin Dashboard', subtitle: 'Complete system oversight and management' },
+  '/dashboard/staff': { title: 'Staff Dashboard', subtitle: 'Your daily clinic operations overview' },
+  '/dashboard/veterinarian': { title: 'Veterinarian Dashboard', subtitle: 'Patient care and treatment management' },
+  '/dashboard/patient': { title: 'Patient Dashboard', subtitle: 'Your health records and appointments' },
   '/patients': { title: 'Patient Management', subtitle: 'View and manage patient records' },
   '/patients/new': { title: 'Register New Patient', subtitle: 'Add a new patient to the system' },
   '/cases': { title: 'Bite Case Management', subtitle: 'Track and manage animal bite cases' },

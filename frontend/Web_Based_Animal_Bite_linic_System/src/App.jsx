@@ -14,7 +14,10 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import VerifyOTP from './pages/auth/VerifyOTP';
 import Profile from './pages/auth/Profile';
-import Dashboard from './pages/dashboard/Dashboard';
+import AdminDashboard from './pages/dashboard/AdminDashboard';
+import StaffDashboard from './pages/dashboard/StaffDashboard';
+import VeterinarianDashboard from './pages/dashboard/VeterinarianDashboard';
+import PatientDashboard from './pages/dashboard/PatientDashboard';
 import PatientList from './pages/patients/PatientList';
 import PatientForm from './pages/patients/PatientForm';
 import PatientDetail from './pages/patients/PatientDetail';
@@ -26,11 +29,11 @@ import VaccinationForm from './pages/vaccinations/VaccinationForm';
 import Inventory from './pages/inventory/Inventory';
 import Reports from './pages/reports/Reports';
 import UserList from './pages/users/UserList';
+import UserCreate from './pages/users/UserCreate';
 import AuditLogs from './pages/audit_logs/AuditLogs';
 import AppointmentBooking from './pages/appointments/AppointmentBooking';
 import MyAppointments from './pages/appointments/MyAppointments';
 import AppointmentManagement from './pages/appointments/AppointmentManagement';
-import PatientDashboard from './pages/dashboard/PatientDashboard';
 import ChatPage from './pages/chat/ChatPage';
 import ErrorPage from './pages/errors/ErrorPage';
 
@@ -55,22 +58,40 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-function RoleBasedDashboard() {
+function RoleRedirect() {
   const { hasRole } = useAuth();
   
-  if (hasRole('patient')) {
-    return <PatientDashboard />;
+  if (hasRole('admin')) return <Navigate to="/dashboard/admin" replace />;
+  if (hasRole('veterinarian') || hasRole('doctor')) return <Navigate to="/dashboard/veterinarian" replace />;
+  if (hasRole('staff') || hasRole('nurse')) return <Navigate to="/dashboard/staff" replace />;
+  if (hasRole('patient')) return <Navigate to="/dashboard/patient" replace />;
+  
+  return <Navigate to="/login" replace />;
+}
+
+function DashboardGuard({ allowedRoles, children }) {
+  const { hasRole } = useAuth();
+  
+  const userRole = (() => {
+    if (hasRole('admin')) return 'admin';
+    if (hasRole('veterinarian') || hasRole('doctor')) return 'veterinarian';
+    if (hasRole('staff') || hasRole('nurse')) return 'staff';
+    if (hasRole('patient')) return 'patient';
+    return null;
+  })();
+  
+  if (!allowedRoles.includes(userRole)) {
+    return <Navigate to={`/dashboard/${userRole}`} replace />;
   }
   
-  // Staff users (admin, doctor, nurse, staff) see the staff dashboard
-  return <Dashboard />;
+  return children;
 }
 
 function PublicRoute({ children }) {
   const { isAuthenticated } = useAuth();
   
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/dashboard" replace />;  // Redirects through RoleRedirect
   }
   
   return children;
@@ -80,7 +101,7 @@ function AdminRoute({ children }) {
   const { isAuthenticated, hasRole } = useAuth();
   
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!hasRole('admin')) return <Navigate to="/dashboard" replace />;
+  if (!hasRole('admin')) return <Navigate to="/dashboard" replace />;  // Redirects through RoleRedirect
   
   return children;
 }
@@ -113,11 +134,17 @@ function AppRoutes() {
         {/* Auth pages */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-        <Route path="/verify-otp" element={<PublicRoute><VerifyOTP /></PublicRoute>} />
-        
-        {/* Protected routes with layout (existing paths preserved) */}
+        <Route path="/verify-otp" element={<PublicRoute><VerifyOTP /></PublicRoute>} />          {/* Protected routes with layout */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route path="dashboard" element={<RoleBasedDashboard />} />
+          {/* Role-specific dashboards */}
+          <Route path="dashboard/admin" element={<DashboardGuard allowedRoles={['admin']}><AdminDashboard /></DashboardGuard>} />
+          <Route path="dashboard/staff" element={<DashboardGuard allowedRoles={['staff']}><StaffDashboard /></DashboardGuard>} />
+          <Route path="dashboard/veterinarian" element={<DashboardGuard allowedRoles={['veterinarian']}><VeterinarianDashboard /></DashboardGuard>} />
+          <Route path="dashboard/patient" element={<DashboardGuard allowedRoles={['patient']}><PatientDashboard /></DashboardGuard>} />
+          
+          {/* Legacy /dashboard redirects to role-specific */}
+          <Route path="dashboard" element={<RoleRedirect />} />
+          
           <Route path="profile" element={<Profile />} />
           
           {/* Patients */}
@@ -139,11 +166,12 @@ function AppRoutes() {
           {/* Inventory */}
           <Route path="inventory" element={<Inventory />} />
           
-          {/* Reports */}
-          <Route path="reports" element={<Reports />} />
+          {/* Reports (Admin only) */}
+          <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
           
           {/* User Management (Admin only) */}
           <Route path="users" element={<AdminRoute><UserList /></AdminRoute>} />
+          <Route path="users/new" element={<AdminRoute><UserCreate /></AdminRoute>} />
           
           {/* Appointments */}
           <Route path="appointments/book" element={<AppointmentBooking />} />

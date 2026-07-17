@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { patientAPI } from '../../api/axios';
+import { useAuth } from '../../contexts/AuthContext';
 import Loader from '../../components/common/Loader';
-import { Save, X } from 'lucide-react';
+import { Save, X, ShieldOff } from 'lucide-react';
 
 export default function PatientForm() {
   const { id } = useParams();
   const isEditing = !!id;
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -41,6 +44,21 @@ export default function PatientForm() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fields that ONLY admin can edit (staff sees as disabled)
+  const PROTECTED_FIELDS = [
+    'first_name', 'middle_name', 'last_name', 'suffix',
+    'date_of_birth', 'gender', 'blood_type',
+    'phone', 'email', 'address', 'barangay', 'municipality', 'province',
+    'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
+  ];
+
+  const isFieldProtected = (fieldName) => {
+    // When CREATING new patients, all fields are editable for everyone
+    if (!isEditing) return false;
+    // When editing, protected fields are only editable by admin
+    return !isAdmin && PROTECTED_FIELDS.includes(fieldName);
   };
 
   const handleChange = (e) => {
@@ -85,23 +103,30 @@ export default function PatientForm() {
         {error && <div className="error-message">⚠️ {error}</div>}
 
         <form onSubmit={handleSubmit}>
+          {isEditing && !isAdmin && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl mb-4 text-sm text-amber-800">
+              <ShieldOff className="w-4 h-4 flex-shrink-0" />
+              You have read-only access to personal information. Only administrators can edit these fields.
+            </div>
+          )}
+
           <p className="form-section-title">Personal Information</p>
           <div className="form-row">
             <div className="form-group">
               <label>First Name *</label>
-              <input name="first_name" value={formData.first_name} onChange={handleChange} required />
+              <input name="first_name" value={formData.first_name} onChange={handleChange} required disabled={isFieldProtected('first_name')} />
             </div>
             <div className="form-group">
               <label>Middle Name</label>
-              <input name="middle_name" value={formData.middle_name} onChange={handleChange} />
+              <input name="middle_name" value={formData.middle_name} onChange={handleChange} disabled={isFieldProtected('middle_name')} />
             </div>
             <div className="form-group">
               <label>Last Name *</label>
-              <input name="last_name" value={formData.last_name} onChange={handleChange} required />
+              <input name="last_name" value={formData.last_name} onChange={handleChange} required disabled={isFieldProtected('last_name')} />
             </div>
             <div className="form-group">
               <label>Suffix</label>
-              <select name="suffix" value={formData.suffix} onChange={handleChange}>
+              <select name="suffix" value={formData.suffix} onChange={handleChange} disabled={isFieldProtected('suffix')}>
                 <option value="">None</option>
                 <option value="Jr.">Jr.</option>
                 <option value="Sr.">Sr.</option>
@@ -113,11 +138,11 @@ export default function PatientForm() {
           <div className="form-row">
             <div className="form-group">
               <label>Date of Birth *</label>
-              <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} required />
+              <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} required disabled={isFieldProtected('date_of_birth')} />
             </div>
             <div className="form-group">
               <label>Gender *</label>
-              <select name="gender" value={formData.gender} onChange={handleChange} required>
+              <select name="gender" value={formData.gender} onChange={handleChange} required disabled={isFieldProtected('gender')}>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>
@@ -125,7 +150,7 @@ export default function PatientForm() {
             </div>
             <div className="form-group">
               <label>Blood Type</label>
-              <select name="blood_type" value={formData.blood_type} onChange={handleChange}>
+              <select name="blood_type" value={formData.blood_type} onChange={handleChange} disabled={isFieldProtected('blood_type')}>
                 <option value="A+">A+</option>
                 <option value="A-">A-</option>
                 <option value="B+">B+</option>
@@ -143,29 +168,29 @@ export default function PatientForm() {
           <div className="form-row">
             <div className="form-group">
               <label>Phone *</label>
-              <input name="phone" value={formData.phone} onChange={handleChange} required />
+              <input name="phone" value={formData.phone} onChange={handleChange} required disabled={isFieldProtected('phone')} />
             </div>
             <div className="form-group">
               <label>Email</label>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} />
+              <input type="email" name="email" value={formData.email} onChange={handleChange} disabled={isFieldProtected('email')} />
             </div>
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Address *</label>
-            <textarea name="address" value={formData.address} onChange={handleChange} rows={2} required />
+            <textarea name="address" value={formData.address} onChange={handleChange} rows={2} required disabled={isFieldProtected('address')} />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Barangay</label>
-              <input name="barangay" value={formData.barangay} onChange={handleChange} />
+              <input name="barangay" value={formData.barangay} onChange={handleChange} disabled={isFieldProtected('barangay')} />
             </div>
             <div className="form-group">
               <label>Municipality</label>
-              <input name="municipality" value={formData.municipality} onChange={handleChange} />
+              <input name="municipality" value={formData.municipality} onChange={handleChange} disabled={isFieldProtected('municipality')} />
             </div>
             <div className="form-group">
               <label>Province</label>
-              <input name="province" value={formData.province} onChange={handleChange} />
+              <input name="province" value={formData.province} onChange={handleChange} disabled={isFieldProtected('province')} />
             </div>
           </div>
 
@@ -173,15 +198,15 @@ export default function PatientForm() {
           <div className="form-row">
             <div className="form-group">
               <label>Contact Name *</label>
-              <input name="emergency_contact_name" value={formData.emergency_contact_name} onChange={handleChange} required />
+              <input name="emergency_contact_name" value={formData.emergency_contact_name} onChange={handleChange} required disabled={isFieldProtected('emergency_contact_name')} />
             </div>
             <div className="form-group">
               <label>Contact Phone *</label>
-              <input name="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={handleChange} required />
+              <input name="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={handleChange} required disabled={isFieldProtected('emergency_contact_phone')} />
             </div>
             <div className="form-group">
               <label>Relation</label>
-              <input name="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={handleChange} />
+              <input name="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={handleChange} disabled={isFieldProtected('emergency_contact_relation')} />
             </div>
           </div>
 
