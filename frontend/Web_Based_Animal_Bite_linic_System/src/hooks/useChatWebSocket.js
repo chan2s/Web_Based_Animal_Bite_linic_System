@@ -28,12 +28,9 @@ export default function useChatWebSocket(onMessage, onOpen, onClose) {
 
     setConnectionStatus('connecting');
 
-    // Determine WebSocket URL
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'localhost:8000'
-      : window.location.host;
-    const wsUrl = `${protocol}//${host}/ws/chat/?token=${token}`;
+    // Determine WebSocket URL from env var (VITE_WS_URL) or fall back to localhost for dev
+    const wsBaseUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+    const wsUrl = `${wsBaseUrl}/ws/chat/?token=${token}`;
 
     // Close existing connection
     if (wsRef.current) {

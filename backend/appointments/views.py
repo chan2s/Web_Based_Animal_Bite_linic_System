@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth.models import User
 from rest_framework import generics, permissions, filters, status
@@ -471,49 +472,54 @@ def administer_vaccination_view(request, pk):
         except Vaccine.DoesNotExist:
             return Response({'error': 'Vaccine not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Create the vaccination record
-    vax_record = VaccinationRecord.objects.create(
-        patient=patient,
-        appointment=appointment,
-        case_id=data.get('case'),
-        vaccine=vaccine,
-        dose_type=data.get('dose_type', 'first'),
-        dose_number=data.get('dose_number', 1),
-        scheduled_date=data.get('scheduled_date', date.today()),
-        administered_date=data.get('administered_date', date.today()),
-        administration_route=data.get('administration_route', 'im'),
-        injection_site=data.get('injection_site', ''),
-        batch_number=data.get('batch_number', ''),
-        dosage_amount=data.get('dosage_amount', ''),
-        manufacturer=data.get('manufacturer', ''),
-        result='administered',
-        notes=data.get('notes', ''),
-        administered_by=request.user,
-    )
+    # Wrap all operations in a transaction to prevent partial updates
+    with transaction.atomic():
+        # Create the vaccination record
+        vax_record = VaccinationRecord.objects.create(
+            patient=patient,
+            appointment=appointment,
+            case_id=data.get('case'),
+            vaccine=vaccine,
+            dose_type=data.get('dose_type', 'first'),
+            dose_number=data.get('dose_number', 1),
+            scheduled_date=data.get('scheduled_date', date.today()),
+            administered_date=data.get('administered_date', date.today()),
+            administration_route=data.get('administration_route', 'im'),
+            injection_site=data.get('injection_site', ''),
+            batch_number=data.get('batch_number', ''),
+            dosage_amount=data.get('dosage_amount', ''),
+            manufacturer=data.get('manufacturer', ''),
+            result='administered',
+            notes=data.get('notes', ''),
+            administered_by=request.user,
+        )
 
-    # Auto-schedule next dose
-    created_schedule = create_vaccination_schedule(vax_record, appointment)
+        # Auto-schedule next dose
+        created_schedule = create_vaccination_schedule(vax_record, appointment)
 
-    # Auto-deduct vaccine inventory
-    deducted_batch = deduct_vaccine_stock(vax_record)
+        # Auto-deduct vaccine inventory
+        deducted_batch = deduct_vaccine_stock(vax_record)
 
-    # Update appointment
-    appointment.vaccination_started_at = appointment.vaccination_started_at or timezone.now()
+        # Update appointment
+        appointment.vaccination_started_at = appointment.vaccination_started_at or timezone.now()
 
-    # If observation requested, move there; otherwise stay for completion
-    send_to_observation = data.get('send_to_observation', False)
-    if send_to_observation:
-        appointment.status = 'observation'
-        appointment.observation_started_at = timezone.now()
-        obs_minutes = data.get('observation_minutes', 30)
-        appointment.observation_end = timezone.now() + timezone.timedelta(minutes=int(obs_minutes))
-        appointment.observation_condition = data.get('observation_condition', '')
-        appointment.observation_notes = data.get('observation_notes', '')
-    else:
-        appointment.status = 'vaccination_ongoing'
-    appointment.save()
+        # If observation requested, move there; otherwise auto-complete
+        send_to_observation = data.get('send_to_observation', False)
+        if send_to_observation:
+            appointment.status = 'observation'
+            appointment.observation_started_at = timezone.now()
+            obs_minutes = data.get('observation_minutes', 30)
+            appointment.observation_end = timezone.now() + timezone.timedelta(minutes=int(obs_minutes))
+            appointment.observation_condition = data.get('observation_condition', '')
+            appointment.observation_notes = data.get('observation_notes', '')
+        else:
+            appointment.status = 'completed'
+            appointment.completed_at = timezone.now()
+            appointment.released_by = request.user
+        appointment.save()
 
-    # Notify patient
+    # Notify patient (notification creation is outside the transaction;
+    # a duplicate notification on retry is harmless)
     create_notification(
         recipient=appointment.booked_by,
         notification_type='vaccination_complete',
@@ -573,7 +579,14 @@ def start_observation_view(request, pk):
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated, IsAdminOrDoctorOrNurse])
 def complete_treatment_view(request, pk):
-    """Complete the appointment and all associated treatment."""
+    """Complete the appointment and all associated treatment.
+
+    Auto-creates a VaccinationRecord if the appointment is being completed
+    from 'vaccination_ongoing' status and no record exists yet.
+    """
+    from vaccinations.models import VaccinationRecord
+    from vaccinations.serializers import VaccinationRecordSerializer as VaxOutputSerializer
+
     appointment = _get_appointment_or_404(pk)
     if not appointment:
         return Response({'error': 'Appointment not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -581,12 +594,39 @@ def complete_treatment_view(request, pk):
     if appointment.status not in ['vaccination_ongoing', 'observation', 'under_consultation']:
         return Response({'error': f'Cannot complete appointment with status "{appointment.status}".'}, status=status.HTTP_400_BAD_REQUEST)
 
-    appointment.status = 'completed'
-    appointment.completed_at = timezone.now()
-    appointment.released_by = request.user
-    appointment.save()
+    now = timezone.now()
+    auto_created_record = None
 
-    # Notify patient
+    # Wrap operations in a transaction to prevent partial updates
+    with transaction.atomic():
+        # Safety net: if completing from vaccination_ongoing and no VaccinationRecord
+        # exists for this appointment, auto-create one
+        if appointment.status == 'vaccination_ongoing':
+            existing_records = VaccinationRecord.objects.filter(appointment=appointment)
+            if not existing_records.exists():
+                if appointment.patient:
+                    auto_created_record = VaccinationRecord.objects.create(
+                        patient=appointment.patient,
+                        appointment=appointment,
+                        dose_number=1,
+                        dose_type='first',
+                        scheduled_date=appointment.appointment_date,
+                        administered_date=date.today(),
+                        result='administered',
+                        administered_by=request.user,
+                        notes='Auto-created on appointment completion.',
+                    )
+                    # Auto-schedule next dose
+                    create_vaccination_schedule(auto_created_record, appointment)
+                    # Auto-deduct inventory (only if vaccine was set)
+                    deduct_vaccine_stock(auto_created_record)
+
+        appointment.status = 'completed'
+        appointment.completed_at = now
+        appointment.released_by = request.user
+        appointment.save()
+
+    # Notify patient (outside transaction — harmless if duplicated on retry)
     create_notification(
         recipient=appointment.booked_by,
         notification_type='treatment_completed',
@@ -600,7 +640,15 @@ def complete_treatment_view(request, pk):
                  model_name='Appointment', object_id=appointment.id, object_repr=str(appointment),
                  request=request)
 
-    return Response(AppointmentSerializer(appointment).data)
+    response_data = AppointmentSerializer(appointment).data
+
+    # Include vaccination record info in response when auto-created
+    if auto_created_record:
+        vax_serializer = VaxOutputSerializer(auto_created_record)
+        response_data['vaccination_record'] = vax_serializer.data
+        response_data['auto_created_record'] = True
+
+    return Response(response_data)
 
 
 @api_view(['POST'])

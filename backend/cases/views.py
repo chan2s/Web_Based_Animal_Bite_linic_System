@@ -2,7 +2,7 @@ from rest_framework import generics, permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import AnimalBiteCase
 from .serializers import AnimalBiteCaseSerializer, AnimalBiteCaseListSerializer
-from accounts.permissions import CanDeleteRecord, _get_role, STAFF_ROLES
+from accounts.permissions import CanDeleteRecord, _get_role, STAFF_ROLES, IsStaffUser
 from audit_logs.models import log_activity
 
 
@@ -10,7 +10,7 @@ class AnimalBiteCaseListCreateView(generics.ListCreateAPIView):
     """List all cases or create a new case."""
     
     queryset = AnimalBiteCase.objects.select_related('patient', 'attending_doctor', 'created_by').all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsStaffUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['case_status', 'bite_category', 'animal_type', 'severity', 
                         'exposure_type', 'wound_location']
@@ -48,7 +48,7 @@ class AnimalBiteCaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method == 'DELETE':
             return [permissions.IsAuthenticated(), CanDeleteRecord()]
-        return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsStaffUser()]
     
     def perform_destroy(self, instance):
         instance.is_active = False

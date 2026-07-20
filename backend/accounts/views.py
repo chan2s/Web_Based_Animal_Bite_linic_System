@@ -14,7 +14,7 @@ from .serializers import (
     PatientProfileSerializer,
     PatientProfileUpdateSerializer,
 )
-from .permissions import CanManageUsers, IsOwnerOrAdmin, IsPatient
+from .permissions import CanManageUsers, IsOwnerOrAdmin, IsPatient, IsStaffUser
 from .services import (
     create_pending_registration,
     verify_registration_otp,
@@ -303,7 +303,7 @@ class UserListCreateView(generics.ListCreateAPIView):
     def get_permissions(self):
         if self.request.method == 'POST':
             return [permissions.IsAuthenticated(), CanManageUsers()]
-        return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsStaffUser()]
     
     def get_queryset(self):
         queryset = User.objects.all().order_by('-date_joined')
@@ -327,7 +327,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [permissions.IsAuthenticated(), CanManageUsers()]
-        return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsStaffUser()]
     
     def perform_destroy(self, instance):
         instance.is_active = False

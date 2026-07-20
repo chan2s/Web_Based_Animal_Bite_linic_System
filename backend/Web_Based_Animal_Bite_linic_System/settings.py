@@ -16,7 +16,9 @@ SECRET_KEY = config('SECRET_KEY')
 
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173,http://localhost:8080', cast=Csv())
 
 # Application definition
 
@@ -140,7 +142,13 @@ CHANNEL_LAYERS = {
 }
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
+# ---------------------------------------------------------------------------
+# In production, set CORS_ALLOWED_ORIGINS in .env to the frontend domain(s).
+# For Render deployments, include https://your-app.onrender.com and the
+# Vercel/Netlify frontend URL(s).
+# ---------------------------------------------------------------------------
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://localhost:8080', cast=Csv())
 CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework Configuration
@@ -160,6 +168,11 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        # BrowsableAPIRenderer is disabled in production as a defence-in-depth
+        # measure: it never runs for JSON Accept headers, but disabling it
+        # reduces the attack surface for CSRF-via-cookie scenarios.
+    ] if not DEBUG else [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
@@ -190,3 +203,55 @@ DEFAULT_FROM_EMAIL = config(
     'DEFAULT_FROM_EMAIL',
     default='Animal Bite Clinic <noreply@animalbiteclinic.com>',
 )
+
+# ============================================
+# SECURITY HEADERS
+# ============================================
+# X_FRAME_OPTIONS — prevents clickjacking by forbidding the page from being
+# rendered in a frame/iframe on a different origin. Default from Django's
+# XFrameOptionsMiddleware is 'DENY', which is correct; setting it explicitly.
+X_FRAME_OPTIONS = 'DENY'
+
+# SECURE_CONTENT_TYPE_NOSNIFF — instructs the browser to trust the declared
+# Content-Type headers rather than MIME-sniffing, mitigating drive-by download
+# attacks.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# SECURE_REFERRER_POLICY — controls how much referrer information is sent with
+# cross-origin requests. 'same-origin' keeps the full URL for same-origin
+# requests but sends nothing cross-origin.
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# ============================================
+# HTTPS / PRODUCTION SECURITY
+# ============================================
+# The settings below are safe defaults for local dev (no HTTPS).
+# On Render, set the following in .env / Render environment variables:
+#   SECURE_SSL_REDIRECT=True
+#   SESSION_COOKIE_SECURE=True
+#   CSRF_COOKIE_SECURE=True
+#   SECURE_HSTS_SECONDS=31536000
+#   SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+#   SECURE_HSTS_PRELOAD=True
+# ---------------------------------------------------------------------------
+
+# SECURE_SSL_REDIRECT — redirects all HTTP requests to HTTPS.
+# Render handles TLS at the edge (proxy), so this should be True in production.
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+
+# SECURE_PROXY_SSL_HEADER — tells Django it is behind an HTTPS-terminating
+# proxy (Render, Cloudflare, Nginx). Without this, SECURE_SSL_REDIRECT can
+# cause infinite redirect loops because Django sees HTTP from the proxy.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# SESSION_COOKIE_SECURE — the session cookie is only sent over HTTPS.
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+
+# CSRF_COOKIE_SECURE — the CSRF cookie is only sent over HTTPS.
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+
+# HTTP Strict Transport Security (HSTS) — tells browsers to always use HTTPS.
+# Set SECURE_HSTS_SECONDS to 31536000 (1 year) in production.
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)

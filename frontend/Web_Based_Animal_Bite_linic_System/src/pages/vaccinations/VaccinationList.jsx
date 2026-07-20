@@ -51,12 +51,13 @@ export default function VaccinationList() {
   const getResultBadge = (result) => {
     const map = {
       administered: 'badge-success',
-      completed: 'badge-success',
-      scheduled: 'badge-info',
       missed: 'badge-danger',
       refused: 'badge-warning',
       contraindicated: 'badge-danger',
       cancelled: 'badge-danger',
+      // Legacy values kept for backward compatibility
+      completed: 'badge-success',
+      scheduled: 'badge-info',
       pending: 'badge-warning',
     };
     return map[result] || 'badge-secondary';

@@ -7,7 +7,7 @@ from .serializers import (
     VaccineSerializer, VaccineListSerializer,
     VaccineBatchSerializer, LowStockAlertSerializer
 )
-from accounts.permissions import CanManageVaccines, CanDeleteRecord
+from accounts.permissions import CanManageVaccines, CanDeleteRecord, IsStaffUser
 from audit_logs.models import log_activity
 
 
@@ -126,7 +126,7 @@ class LowStockAlertDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, IsStaffUser])
 def low_stock_summary_view(request):
     """Get all vaccines that are below their threshold. All staff can view."""
     alerts = LowStockAlert.objects.filter(is_enabled=True).select_related('vaccine')
@@ -147,7 +147,7 @@ def low_stock_summary_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, IsStaffUser])
 def inventory_summary_view(request):
     """Get overall inventory summary. All staff can view."""
     vaccines = Vaccine.objects.filter(is_active=True)

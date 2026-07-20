@@ -146,24 +146,24 @@ export const appointmentAPI = {
   availableSlots: (date) => api.get('/appointments/available-slots/', { params: { date } }),
   checkSlot: (date, time) => api.get('/appointments/check-slot/', { params: { date, time } }),
   clinicInfo: () => api.get('/appointments/clinic-info/'),
-  
+
   // User's appointments
   myUpcoming: () => api.get('/appointments/my-upcoming/'),
   myHistory: () => api.get('/appointments/my-history/'),
-  
+
   // CRUD
   list: (params) => api.get('/appointments/', { params }),
   create: (data) => api.post('/appointments/', data),
   get: (id) => api.get(`/appointments/${id}/`),
   update: (id, data) => api.patch(`/appointments/${id}/`, data),
   cancel: (id, reason) => api.post(`/appointments/${id}/cancel/`, { reason }),
-  
+
   // Staff actions
   staffList: (params) => api.get('/appointments/staff/all/', { params }),
   approve: (id) => api.post(`/appointments/${id}/approve/`),
   reject: (id, reason) => api.post(`/appointments/${id}/reject/`, { reason }),
   complete: (id) => api.post(`/appointments/${id}/complete/`),
-  
+
   // Workflow actions
   checkIn: (id) => api.post(`/appointments/${id}/check-in/`),
   startConsultation: (id, vetId) => api.post(`/appointments/${id}/start-consultation/`, { veterinarian_id: vetId }),
@@ -172,15 +172,15 @@ export const appointmentAPI = {
   administerVaccination: (id, data) => api.post(`/appointments/${id}/administer-vaccination/`, data),
   startObservation: (id, data) => api.post(`/appointments/${id}/start-observation/`, data),
   noShow: (id, reason) => api.post(`/appointments/${id}/no-show/`, { reason }),
-  
+
   // Veterinarian queue
   vetQueue: () => api.get('/appointments/veterinarian/queue/'),
-  
+
   // Consultation reports
   consultations: (params) => api.get('/appointments/consultations/', { params }),
   getConsultation: (id) => api.get(`/appointments/consultations/${id}/`),
   updateConsultation: (id, data) => api.patch(`/appointments/consultations/${id}/`, data),
-  
+
   // Configuration
   getConfig: () => api.get('/appointments/config/'),
   updateConfig: (data) => api.patch('/appointments/config/', data),

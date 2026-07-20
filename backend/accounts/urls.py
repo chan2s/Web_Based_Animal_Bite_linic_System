@@ -12,7 +12,7 @@ urlpatterns = [
     path('profile/', views.profile_view, name='auth-profile'),
     path('profile/patient/', views.patient_profile_view, name='auth-patient-profile'),
     path('change-password/', views.change_password_view, name='auth-change-password'),
-    
+
     # User Management (Admin only)
     path('users/', views.UserListCreateView.as_view(), name='user-list'),
     path('users/<int:pk>/', views.UserDetailView.as_view(), name='user-detail'),
